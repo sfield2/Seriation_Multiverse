@@ -2,8 +2,6 @@
 title: "Glowacki et al. 2026"
 format: html
 editor: visual
-execute: 
-  echo: false
 ---
 
 # Research compendium for Glowacki et al. (2026)
@@ -25,7 +23,7 @@ knitr::opts_knit$set(root.dir = "C:/Users/sfield3/OneDrive - University of Wyomi
 
 ```{r}
 
-packages <-c('terra','sf','ggplot2','tidyterra','dplyr','tidyr','gifski','gganimate','ggforce','ggpubr','scales','lmtest','tseries','FedData','tidyverse','compiler','msm','snowfall','parallel','doParallel')
+packages <-c('terra','sf','ggplot2','tidyterra','dplyr','tidyr','stringr','gifski','gganimate','ggforce','ggpubr','scales','lmtest','tseries','FedData','tidyverse','compiler','msm','snowfall','parallel','doParallel')
 
 for(p in packages) if(p %in% rownames(installed.packages()) == F) { install.packages(p) }
 for(p in packages) suppressPackageStartupMessages(library(p,quietly=T,character.only=T))
@@ -37,14 +35,7 @@ theme_set(theme_bw())
 
 `contingency_table`
 
-`BR`
-
-`updf`: no change?
-
-`nsj_ca_seriation`
-
 ```{r}
-### FUNCTION #1:
 contingency_table <- function(data1, data2, row) {
   contingency <- matrix(c(0,0,0,0), nrow = 2,
                         dimnames = list(dim1 = c("present", "absent"),
@@ -60,8 +51,28 @@ contingency_table <- function(data1, data2, row) {
   }
   return (contingency)
 }
+```
 
-### FUNCTION #2:
+`BR`
+
+```{r}
+BR <- function(x) {
+  rd <- dim(x)[1]
+  results <- matrix(0,rd,rd)
+  for (s1 in 1:rd) {
+    for (s2 in 1:rd) {
+      x1Temp <- as.numeric(x[s1, ])
+      x2Temp <- as.numeric(x[s2, ])
+      br.temp <- 0
+      results[s1,s2] <- 200 - (sum(abs(x1Temp - x2Temp)))}}
+  row.names(results) <- row.names(x)
+  colnames(results) <- row.names(x)
+return(results)}
+```
+
+`updf`: no change?
+
+```{r}
 updf <- function(site,cer.type,ct,start,end,chron,interval=5,cutoff=0.1,min.period=25) {
   
   ## Remove any type with a count of 0 from all vectors
@@ -151,22 +162,11 @@ updf <- function(site,cer.type,ct,start,end,chron,interval=5,cutoff=0.1,min.peri
   out.list <- list(site=site,prior=prior,posterior=posterior,conditional=conditional,period=period,samp.size=sum(ct),occ=cbind(lwr,upr))
   return(out.list)
 }
+```
 
-### FUNCTION #3:
-BR <- function(x) {
-  rd <- dim(x)[1]
-  results <- matrix(0,rd,rd)
-  for (s1 in 1:rd) {
-    for (s2 in 1:rd) {
-      x1Temp <- as.numeric(x[s1, ])
-      x2Temp <- as.numeric(x[s2, ])
-      br.temp <- 0
-      results[s1,s2] <- 200 - (sum(abs(x1Temp - x2Temp)))}}
-  row.names(results) <- row.names(x)
-  colnames(results) <- row.names(x)
-return(results)}
+`nsj_ca_seriation`
 
-### FUNCTION #4:
+```{r}
 nsj_ca_seriation <- function(test_ceramics){
   cal_allprop <- read.csv("https://raw.githubusercontent.com/sfield2/NSJ-MV-CeramicSeriation/refs/heads/main/DATA/VEP_calibration_proportions.csv",header=T,fileEncoding = 'UTF-8-BOM')%>%
     as.matrix()
@@ -193,6 +193,39 @@ return(seriation_occupation)
 }
 ```
 
+`rebin`
+
+```{r}
+rebin <- function(seriation_annual, ranges){
+
+  # Split ranges into numeric start/end
+  parsed <- ranges %>%
+    separate(ranges, into = c("start", "end"), sep = "-") %>%
+    mutate(
+      start = as.numeric(start),
+      end   = as.numeric(end)
+    )
+  
+  seriation_annual_rebinned <- seriation_annual %>%
+    group_by(Site) %>%
+    # For each period, check if any occupation exists in that range
+    mutate(bins = sapply(Year, function(y) {
+            active_periods <- parsed %>%
+              mutate(in_range = y >= start & y <= end) %>%
+              filter(in_range)
+            
+            if (nrow(active_periods) == 0) return(NA)
+            has_occ <- any(Occupation > 0 & 
+                         Year >= active_periods$start & 
+                         Year <= active_periods$end)
+            if (has_occ) {return(1)} 
+              else {return(0)}
+        })) %>%
+    ungroup()
+  return(seriation_annual_rebinned)
+  }
+```
+
 ## 2.0 Import Study Area Extent, Sites, and Raw Ceramic Counts
 
 ```{r}
@@ -210,6 +243,12 @@ ca_ranges<- data.frame(ranges = c("0700-0799","0800-0879","0880-0919","0920-0979
 survey_ranges <- data.frame(ranges=c("0700-0899","0900-999","0900-1149","1050-1149","1150-1300"),period=c("P1","P1P2","P2","P2P3","P3"))
 
 vep_ranges <-data.frame(ranges=c("0700-0724","0725-0799","0800-0839","0840-0879","0880-0919","0920-0979","0980-1019","1020-1059","1060-1099","1100-1139","1140-1179","1180-1224","1225-1259","1260-1280"),period=c("ph6","ph7","ph8","ph9","ph10","ph11","ph12","ph13","ph14","ph15","ph16","ph17","ph18","ph19"))
+
+cybersw_ranges <- read.csv("./DATA/Ceramics/UPDA_Ceramic_TypesandDatesfromCyberSW.csv")%>%
+  select(c("Type","BegDate","EndDate"))%>%
+  setNames(c("Type","Begin","End"))
+
+upda_ranges <-data.frame(ranges=c("0700-0799","0800-0874","0875-0924","0925-0974","0975-1049","1050-1174","1175-1200","1201-1250","1251-1280"),period=c("ph1","ph2","ph3","ph4","ph5","ph6","ph7","ph8","ph9"))
 ```
 
 ## 3.0 Read in Pre-analyzed Seriation Results
@@ -221,6 +260,13 @@ vep_ranges <-data.frame(ranges=c("0700-0724","0725-0799","0800-0839","0840-0879"
 ```{r}
 
 vep <- read.csv("./DATA/Occupations/vep_output.csv")
+
+# CHECK TO SEE IF WE HAVE ANY POSITIVE NON-INTEGERS in PH6:PH19
+# vep_names <- vep$Site.Number
+# vep_names<-gsub("5MV0","5MV",vep_names)
+#   
+# vep_full <- read.csv("C:/Users/sfield3/Documents/RESEARCH/DATA GENERAL/SENSITIVE SITE LOCATIONS/db_vepii_n.csv")%>%
+#   filter(COsitenum %in% vep_names)
 
 survey <- read.csv("./DATA/Occupations/survey_output.csv")
 ```
@@ -244,24 +290,18 @@ ca <- nsj_ca_seriation(df_diag_allprop)
 Spread master_pottery into types and assign counts
 
 ```{r}
-
-cybersw_dates <- read.csv("./DATA/Ceramics/UPDA_Ceramic_TypesandDatesfromCyberSW.csv")%>%
-  select(c("Type","BegDate","EndDate"))%>%
-  setNames(c("Type","Begin","End"))
-
 diagnostic_list <- c("Abajo.R.O","Bluff.B.R","Chapin.B.W","Chapin.Gray","Cortez.B.W","Deadmans.B.R","Dolores.Corrugated","Mancos.B.W","Mancos.Corrugated","Mancos.Gray","McElmo.B.W","Mesa.Verde.B.W","Mesa.Verde.Corrugated","Moccasin.Gray","Piedra.B.W")
 
 upda_ceramics <- master_pottery%>%
   select(-c(Source))%>%
   gather(Type, Count,-Site.Number)%>%
-  left_join(cybersw_dates,by="Type")%>%
+  left_join(cybersw_ranges,by="Type")%>%
   mutate(Chronology=ifelse(.$Type%in% diagnostic_list,1,0))%>%
   filter(Type!="Other",
          Count > 0)
 ```
 
 ```{r}
-
 site_list <- unique(upda_ceramics$Site.Number)
 
 ## Run analysis for all sites
@@ -295,7 +335,7 @@ for (i in 1:length(site_list)) {
 ### 6.1 Clean up environment
 
 ```{r}
-rm(list=setdiff(ls(),c("ca","survey","upda","vep","contingency_table","ca_ranges","survey_ranges","vep_ranges")))
+#rm(list=setdiff(ls(),c("ca","survey","upda","vep","contingency_table","ca_ranges","survey_ranges","vep_ranges")))
 ```
 
 ### 6.2 Transform Occupation assignments into Annual Reconstructions
@@ -363,9 +403,506 @@ upda_annual <- upda%>%
 rm(survey_annual_nontransition,survey_annual_transition)
 ```
 
-### 6.3 Contingency Table 
+### 6.3 Summarize and Chi-Square
 
 ```{r}
+ca_sum <- ca_annual%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+survey_sum <- survey_annual%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+vep_sum <- vep_annual%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+upda_sum <- upda_annual%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+df_summary <- merge(ca_sum,survey_sum,by="Year")%>%
+  merge(.,vep_sum,by="Year")%>%
+  merge(.,upda_sum,by="Year")%>%
+  setNames(c("Year","CA","Survey","VEP","UPDA"))
+
+chisq_p <- matrix(nrow = nrow(df_summary), ncol = 2)
+row_names <- 750:1280
+chisq_p[1:nrow(chisq_p)] <- row_names
+
+for (i in 1:nrow(chisq_p)) {
+  chisq_p[i, 2] <- chisq.test(matrix(c(df_summary[i,2], 79-df_summary[i,2], 
+                                       df_summary[i,3], 79-df_summary[i,3], 
+                                       df_summary[i,4], 79-df_summary[i,4], 
+                                       df_summary[i,5], 79-df_summary[i,5]),
+                                     nrow = 2),
+                              correct = F)$p.value
+}
+
+chisq_p <- as.data.frame(chisq_p)
+write.csv(chisq_p, "./OUTPUT/chi_squared_p-values.csv")
+```
+
+#### 6.3.1 Plot Summary Counts (Supplemental Maybe?)
+
+### 6.4 Determine based on Re-binning
+
+#### 6.4.1 Re-bin to Pecos
+
+```{r}
+ca_bintosurvey <- rebin(ca_annual,survey_ranges)
+vep_bintosurvey <- rebin(vep_annual,survey_ranges)
+upda_bintosurvey <- rebin(upda_annual,survey_ranges)
+survey_bintosurvey <- survey_annual
+
+ca_bintosurvey_sum <- ca_bintosurvey%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+vep_bintosurvey_sum <- vep_bintosurvey%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+upda_bintosurvey_sum <- upda_bintosurvey%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+survey_bintosurvey_sum <- survey_bintosurvey%>%
+  select(c("Site","Year","Occupation"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+survey_bins_summary <- merge(ca_bintosurvey_sum,vep_bintosurvey_sum,by="Year")%>%
+  merge(.,upda_bintosurvey_sum,by="Year")%>%
+  merge(.,survey_bintosurvey_sum,by="Year")%>%
+  setNames(c("Year","CA","VEP","UPDA","Survey"))%>%
+  gather(Method,Count,-Year)
+```
+
+#### 6.4.2 Re-bin to VEP
+
+```{r}
+ca_bintovep <- rebin(ca_annual,vep_ranges)
+survey_bintovep <- rebin(survey_annual,vep_ranges)
+upda_bintovep <- rebin(upda_annual,vep_ranges)
+vep_bintovep <- vep_annual
+
+ca_bintovep_sum <- ca_bintovep%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+survey_bintovep_sum <- survey_bintovep%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+upda_bintovep_sum <- upda_bintovep%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+vep_bintovep_sum <- vep_bintovep%>%
+  select(c("Site","Year","Occupation"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+vep_bins_summary <- merge(ca_bintovep_sum,survey_bintovep_sum,by="Year")%>%
+  merge(.,upda_bintovep_sum,by="Year")%>%
+  merge(.,vep_bintovep_sum,by="Year")%>%
+  setNames(c("Year","CA","Survey","UPDA","VEP"))%>%
+  gather(Method,Count,-Year)
+```
+
+#### 6.4.3 Re-bin to CA
+
+```{r}
+survey_bintoca <- rebin(survey_annual,ca_ranges)
+vep_bintoca <- rebin(vep_annual,ca_ranges)
+upda_bintoca <- rebin(upda_annual,ca_ranges)
+ca_bintoca <- ca_annual
+
+survey_bintoca_sum <- survey_bintoca%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+vep_bintoca_sum <- vep_bintoca%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+upda_bintoca_sum <- upda_bintoca%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+ca_bintoca_sum <- ca_bintoca%>%
+  select(c("Site","Year","Occupation"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+ca_bins_summary <- merge(survey_bintoca_sum,vep_bintoca_sum,by="Year")%>%
+  merge(.,upda_bintoca_sum,by="Year")%>%
+  merge(.,ca_bintoca_sum,by="Year")%>%
+  setNames(c("Year","Survey","VEP","UPDA","CA"))%>%
+  gather(Method,Count,-Year)
+```
+
+#### 6.4.4 Re-bin to UPDA
+
+```{r}
+survey_bintoupda <- rebin(survey_annual,upda_ranges)
+vep_bintoupda <- rebin(vep_annual,upda_ranges)
+ca_bintoupda <- rebin(ca_annual,upda_ranges)
+upda_bintoupda <- upda_annual
+
+survey_bintoupda_sum <- survey_bintoupda%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+vep_bintoupda_sum <- vep_bintoupda%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+ca_bintoupda_sum <- ca_bintoupda%>%
+  select(c("Site","Year","bins"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(bins,na.rm=T))
+
+upda_bintoupda_sum <- upda_bintoupda%>%
+  select(c("Site","Year","Occupation"))%>%
+  group_by(Year)%>%
+  summarise(total_count=sum(Occupation,na.rm=T))
+
+upda_bins_summary <- merge(survey_bintoupda_sum,vep_bintoupda_sum,by="Year")%>%
+  merge(.,ca_bintoupda_sum,by="Year")%>%
+  merge(.,upda_bintoupda_sum,by="Year")%>%
+  setNames(c("Year","Survey","VEP","UPDA","CA"))%>%
+  gather(Method,Count,-Year)
+```
+
+#### 6.4.5 Plots
+
+```{r}
+p1<-ggplot(data=survey_bintosurvey_sum,aes(Year,total_count))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#3d405b",lwd=1.5)+
+  labs(title="Binned to Survey (Pecos Phases)",
+       x=NULL,
+       y="Survey Site Count")+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title.y = element_text(size=15),
+        plot.margin = margin(5,5,0,2),
+        panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+
+p2<- ggplot(data=survey_bintoca_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#3d405b",lwd=1.5)+
+  labs(title="Binned to CA Phases",
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.title=element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p3 <- ggplot(data=survey_bintoupda_sum,aes(Year,total_count))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#3d405b",lwd=1.5)+
+  labs(title="Binned to UPDA Phases",
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.title=element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+
+p4 <- ggplot(data=survey_bintovep_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#3d405b",lwd=1.5)+
+  labs(title="Binned to VEP Phases",
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.title=element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p5 <- ggplot(data=ca_bintosurvey_sum,aes(Year,total_count))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#e07a5f",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y="CA Site Counts")+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p6 <- ggplot(data=ca_bintoca_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#e07a5f",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.margin = margin(5,5,0,2),
+        panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+
+p7 <- ggplot(data=ca_bintoupda_sum,aes(Year,total_count))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#e07a5f",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.margin = margin(5,5,0,2))
+
+
+p8 <- ggplot(data=ca_bintovep_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#e07a5f",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.margin = margin(5,5,0,2))
+
+p9 <- ggplot(data=upda_bintosurvey_sum,aes(Year,total_count))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#81b29a",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y="UPDA Site Counts")+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p10 <- ggplot(data=upda_bintoca_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#81b29a",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.margin = margin(5,5,0,2))
+
+p11 <- ggplot(data=upda_bintoupda_sum,aes(Year,total_count))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#81b29a",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.margin = margin(5,5,0,2),
+        panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+p12 <- ggplot(data=upda_bintovep_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#81b29a",lwd=1.5)+
+  labs(title=NULL,
+       x=NULL,
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        plot.margin = margin(5,5,0,2))
+
+p13 <- ggplot(data=vep_bintosurvey_sum,aes(Year,total_count))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#f2cc8f",lwd=1.5)+
+  labs(title=NULL,
+       x="Year",
+       y="VEP Site Counts")+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title = element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p14 <- ggplot(data=vep_bintoca_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#f2cc8f",lwd=1.5)+
+  labs(title=NULL,
+       x="Year",
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.x = element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p15 <- ggplot(data=vep_bintoupda_sum,aes(Year,total_count))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#f2cc8f",lwd=1.5)+
+  labs(title=NULL,
+       x="Year",
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.x = element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p16 <- ggplot(data=vep_bintovep_sum,aes(Year,total_count))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(col="#f2cc8f",lwd=1.5)+
+  labs(title=NULL,
+       x="Year",
+       y=NULL)+
+  scale_y_continuous(limits=c(0,80))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.x = element_text(size=15),
+        plot.margin = margin(5,5,0,2),
+        panel.border = element_rect(colour = "black", fill = NA, linewidth = 1))
+
+png('./FIGURES/Figure_2.png',height=12000,width=24000,res=1200)
+ggarrange(p1,p2,p3,p4,
+          p5,p6,p7,p8,
+          p9,p10,p11,p12,
+          p13,p14,p15,p16,
+          nrow=4,ncol=4,align="hv")
+dev.off()
+```
+
+### 6.5 Contingency Comparisons
+
+#### 6.5.1 Compare without Re-binning
+
+```{r}
+#original contingency
 survey_t <- survey_annual%>%
   pivot_wider(names_from=Site,values_from=Occupation)
 
@@ -415,29 +952,1049 @@ for (i in 1:nrow(percent_error)) {
 
 # setwd(outdir)
 write.csv(percent_error, "./OUTPUT/percent_error.csv")
-
 ```
 
-# Create code to bring this together.
+##### 6.5.1.1 Plot without Re-binning
 
 ```{r}
-counts <- read.csv("./DATA/counts_annual.csv")
+disagreement_summary1<-percent_error%>%
+  mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
+         Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
+         VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
+         UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
+         Year=750:1280)
+
+disagreement_survey1 <- disagreement_summary1%>%
+  select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+disagreement_ca1 <- disagreement_summary1%>%
+  select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_upda1 <- disagreement_summary1%>%
+  select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_vep1 <- disagreement_summary1%>%
+  select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+p1<-ggplot(data=chisq_p,aes(V1,V2))+
+  geom_line(col="grey30",lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Chi-Square P-value")+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p2<-ggplot(data=disagreement_survey1 ,aes(Year,error))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  labs(x=NULL,
+       y="Disagreement\n(Survey)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p3<-ggplot(data=disagreement_ca1 ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Disagreement\n(CA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p4<-ggplot(data=disagreement_upda1 ,aes(Year,error))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
+  labs(x=NULL,
+       y="Disagreement\n(UPDA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p5<-ggplot(data=disagreement_vep1 ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
+  labs(x="Year",
+       y="Disagreement\n(VEP)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
 ```
 
-```{r}
+#### 6.5.2 Compare Re-binned to Survey
 
-chisq_p <- matrix(nrow = nrow(counts), ncol = 2)
+```{r}
+# run chi square of annual summaries after rebinning
+summary <- merge(ca_bintosurvey_sum,vep_bintosurvey_sum,by="Year")%>%
+  merge(.,upda_bintosurvey_sum,by="Year")%>%
+  merge(.,survey_bintosurvey_sum,by="Year")%>%
+  setNames(c("Year","CA","VEP","UPDA","Survey"))
+
+s_summary <- summary[, c("Year","CA","Survey","VEP","UPDA")]
+
+chisq_p <- matrix(nrow = nrow(s_summary), ncol = 2)
 chisq_p[1:nrow(chisq_p)] <- row_names
 
 for (i in 1:nrow(chisq_p)) {
-  chisq_p[i, 2] <- chisq.test(matrix(c(counts[i,2], 79-counts[i,2], 
-                                       counts[i,3], 79-counts[i,3], 
-                                       counts[i,4], 79-counts[i,4], 
-                                       counts[i,5], 79-counts[i,5]),
+  chisq_p[i, 2] <- chisq.test(matrix(c(s_summary[i,2], 79-s_summary[i,2], 
+                                       s_summary[i,3], 79-s_summary[i,3], 
+                                       s_summary[i,4], 79-s_summary[i,4], 
+                                       s_summary[i,5], 79-s_summary[i,5]),
                                      nrow = 2),
                               correct = F)$p.value
 }
 
-write.csv(chisq_p, "./OUTPUT/chi_squared_p-values.csv")
+### CHI.SQUARE BEING WEIGHTED BY VEP?
+# mat <-matrix(c(s_summary[i,2], 79-s_summary[i,2], 
+#                                        s_summary[i,3], 79-s_summary[i,3], 
+#                                        s_summary[i,4], 79-s_summary[i,4], 
+#                                        s_summary[i,5], 79-s_summary[i,5]),
+#                                      nrow = 2)
+# 
+# test <- mat[,c(1,3,4)]
+# 
+# chisq.test(test)
+
+chisq_p2 <- as.data.frame(chisq_p)
+
+write.csv(chisq_p2, "./OUTPUT/chi_squared_p-values_survey_bins.csv")
+
+# transform into site-by-site matrix
+ca_t <- ca_bintosurvey%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+vep_t <- vep_bintosurvey%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+upda_t<- upda_bintosurvey%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+survey_t <- survey_bintosurvey%>%
+  pivot_wider(names_from=Site,values_from=Occupation)
+
+# calculate pairwise diseagreement
+#### Calculate pairwise disagreement ####
+col_names <- c("Survey/VEP", "Survey/UPDA", "Survey/CA", "VEP/UPDA", "VEP/CA", "UPDA/CA")
+
+percent_error <- as.data.frame(matrix(nrow = length(row_names), 
+                                      ncol = length(col_names), 
+                     dimnames = list(row_names, col_names)))
+
+for (i in 1:nrow(percent_error)) {
+  #Survey vs. VEP
+  percent_error[i,1] <- (contingency_table(survey_t, vep_t, i)[1,2] + 
+                           contingency_table(survey_t, vep_t, i)[2,1]) / 79
+  
+  #Survey vs. UPDA
+  percent_error[i,2] <- (contingency_table(survey_t, upda_t, i)[1,2] + 
+                           contingency_table(survey_t, upda_t, i)[2,1]) / 79
+  
+  #Survey vs. CA
+  percent_error[i,3] <- (contingency_table(survey_t, ca_t, i)[1,2] + 
+                           contingency_table(survey_t, ca_t, i)[2,1]) / 79
+  
+  #VEP vs. UPDA
+  percent_error[i,4] <- (contingency_table(vep_t, upda_t, i)[1,2] + 
+                           contingency_table(vep_t, upda_t, i)[2,1]) / 79
+  
+  #VEP vs. CA
+  percent_error[i,5] <- (contingency_table(vep_t, ca_t, i)[1,2] + 
+                           contingency_table(vep_t, ca_t, i)[2,1]) / 79
+  
+  #UPDA vs. CA
+  percent_error[i,6] <- (contingency_table(upda_t, ca_t, i)[1,2] + 
+                           contingency_table(upda_t, ca_t, i)[2,1]) / 79
+}
+
+# setwd(outdir)
+write.csv(percent_error, "./OUTPUT/percent_error_survey_bins.csv")
+```
+
+##### 6.5.2.1 Plot Re-binned to Survey
+
+```{r}
+disagreement_summary2<-percent_error%>%
+  mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
+         Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
+         VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
+         UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
+         Year=750:1280)
+
+disagreement_survey2 <- disagreement_summary2%>%
+  select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+disagreement_ca2 <- disagreement_summary2%>%
+  select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_upda2 <- disagreement_summary2%>%
+  select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_vep2 <- disagreement_summary2%>%
+  select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+p6<-ggplot(data=chisq_p2,aes(V1,V2))+
+  geom_line(col="grey30",lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Chi-Square P-value")+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p7<-ggplot(data=disagreement_survey2 ,aes(Year,error))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  labs(x=NULL,
+       y="Disagreement\n(Survey)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p8<-ggplot(data=disagreement_ca2 ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Disagreement\n(CA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p9<-ggplot(data=disagreement_upda2 ,aes(Year,error))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
+  labs(x=NULL,
+       y="Disagreement\n(UPDA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p10<-ggplot(data=disagreement_vep2 ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
+  labs(x="Year",
+       y="Disagreement\n(VEP)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+```
+
+#### 6.5.3 Compare Re-binned to CA
+
+```{r}
+# run chi square of annual summaries after rebinning
+
+summary <- merge(survey_bintoca_sum,vep_bintoca_sum,by="Year")%>%
+  merge(.,upda_bintoca_sum,by="Year")%>%
+  merge(.,ca_bintoca_sum,by="Year")%>%
+  setNames(c("Year","Survey","VEP","UPDA","CA"))
+
+s_summary <- summary[, c("Year","CA","Survey","VEP","UPDA")]
+
+chisq_p <- matrix(nrow = nrow(s_summary), ncol = 2)
+chisq_p[1:nrow(chisq_p)] <- row_names
+
+for (i in 1:nrow(chisq_p)) {
+  chisq_p[i, 2] <- chisq.test(matrix(c(s_summary[i,2], 79-s_summary[i,2], 
+                                       s_summary[i,3], 79-s_summary[i,3], 
+                                       s_summary[i,4], 79-s_summary[i,4], 
+                                       s_summary[i,5], 79-s_summary[i,5]),
+                                     nrow = 2),
+                              correct = F)$p.value
+}
+
+
+chisq_p3 <- as.data.frame(chisq_p)
+
+write.csv(chisq_p3, "./OUTPUT/chi_squared_p-values_CA_bins.csv")
+
+
+# rebin
+survey_bintoca_comp <- rebin(survey_annual,ca_ranges)
+
+vep_bintoca_comp <- rebin(vep_annual,ca_ranges)
+
+upda_bintoca_comp <- rebin(upda_annual,ca_ranges)
+
+ca_bintoca_comp <- ca_annual
+
+
+
+# transform into site-by-site matrix
+survey_t <- survey_bintoca_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+vep_bintoca_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+upda_t<- upda_bintoca_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+ca_t <- ca_bintoca_comp%>%
+  pivot_wider(names_from=Site,values_from=Occupation)
+
+# calculate pairwise diseagreement
+#### Calculate pairwise disagreement ####
+col_names <- c("Survey/VEP", "Survey/UPDA", "Survey/CA", "VEP/UPDA", "VEP/CA", "UPDA/CA")
+
+percent_error <- as.data.frame(matrix(nrow = length(row_names), 
+                                      ncol = length(col_names), 
+                     dimnames = list(row_names, col_names)))
+
+for (i in 1:nrow(percent_error)) {
+  #Survey vs. VEP
+  percent_error[i,1] <- (contingency_table(survey_t, vep_t, i)[1,2] + 
+                           contingency_table(survey_t, vep_t, i)[2,1]) / 79
+  
+  #Survey vs. UPDA
+  percent_error[i,2] <- (contingency_table(survey_t, upda_t, i)[1,2] + 
+                           contingency_table(survey_t, upda_t, i)[2,1]) / 79
+  
+  #Survey vs. CA
+  percent_error[i,3] <- (contingency_table(survey_t, ca_t, i)[1,2] + 
+                           contingency_table(survey_t, ca_t, i)[2,1]) / 79
+  
+  #VEP vs. UPDA
+  percent_error[i,4] <- (contingency_table(vep_t, upda_t, i)[1,2] + 
+                           contingency_table(vep_t, upda_t, i)[2,1]) / 79
+  
+  #VEP vs. CA
+  percent_error[i,5] <- (contingency_table(vep_t, ca_t, i)[1,2] + 
+                           contingency_table(vep_t, ca_t, i)[2,1]) / 79
+  
+  #UPDA vs. CA
+  percent_error[i,6] <- (contingency_table(upda_t, ca_t, i)[1,2] + 
+                           contingency_table(upda_t, ca_t, i)[2,1]) / 79
+}
+
+# setwd(outdir)
+write.csv(percent_error, "./OUTPUT/percent_error_CA_bins.csv")
+```
+
+##### 6.5.3.1 Plot Re-binned to CA
+
+```{r}
+disagreement_summary3<-percent_error%>%
+  mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
+         Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
+         VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
+         UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
+         Year=750:1280)
+
+disagreement_survey3 <- disagreement_summary3%>%
+  select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+disagreement_ca3 <- disagreement_summary3%>%
+  select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_upda3 <- disagreement_summary3%>%
+  select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_vep3 <- disagreement_summary3%>%
+  select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+p15<-ggplot(data=chisq_p3,aes(V1,V2))+
+  geom_line(col="grey30",lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Chi-Square P-value")+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p16<-ggplot(data=disagreement_survey ,aes(Year,error))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  labs(x=NULL,
+       y="Disagreement\n(Survey)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p17<-ggplot(data=disagreement_ca ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Disagreement\n(CA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p18<-ggplot(data=disagreement_upda ,aes(Year,error))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
+  labs(x=NULL,
+       y="Disagreement\n(UPDA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p19<-ggplot(data=disagreement_vep ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
+  labs(x="Year",
+       y="Disagreement\n(VEP)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+```
+
+#### 6.5.4 Compare Re-binned to UPDA
+
+```{r}
+# run chi square of annual summaries after rebinning
+summary <- merge(survey_bintoupda_sum,vep_bintoupda_sum,by="Year")%>%
+  merge(.,ca_bintoupda_sum,by="Year")%>%
+  merge(.,upda_bintoupda_sum,by="Year")%>%
+  setNames(c("Year","Survey","VEP","UPDA","CA"))
+
+s_summary <- summary[, c("Year","CA","Survey","VEP","UPDA")]
+
+chisq_p <- matrix(nrow = nrow(s_summary), ncol = 2)
+chisq_p[1:nrow(chisq_p)] <- row_names
+
+for (i in 1:nrow(chisq_p)) {
+  chisq_p[i, 2] <- chisq.test(matrix(c(s_summary[i,2], 79-s_summary[i,2], 
+                                       s_summary[i,3], 79-s_summary[i,3], 
+                                       s_summary[i,4], 79-s_summary[i,4], 
+                                       s_summary[i,5], 79-s_summary[i,5]),
+                                     nrow = 2),
+                              correct = F)$p.value
+}
+
+
+chisq_p <- as.data.frame(chisq_p)
+
+write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_UPDA_bins.csv")
+
+
+# rebin
+survey_bintoupda_comp <- rebin(survey_annual,upda_ranges)
+
+vep_bintoupda_comp <- rebin(vep_annual,upda_ranges)
+
+ca_bintoupda_comp <- rebin(ca_annual,upda_ranges)
+
+upda_bintoupda_comp <- upda_annual
+
+
+# transform into site-by-site matrix
+survey_t <- survey_bintoupda_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+vep_bintoupda_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+upda_t<- upda_bintoupda_comp%>%
+  pivot_wider(names_from=Site,values_from=Occupation)
+
+ca_t <- ca_bintoupda_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+# calculate pairwise diseagreement
+#### Calculate pairwise disagreement ####
+col_names <- c("Survey/VEP", "Survey/UPDA", "Survey/CA", "VEP/UPDA", "VEP/CA", "UPDA/CA")
+
+percent_error <- as.data.frame(matrix(nrow = length(row_names), 
+                                      ncol = length(col_names), 
+                     dimnames = list(row_names, col_names)))
+
+for (i in 1:nrow(percent_error)) {
+  #Survey vs. VEP
+  percent_error[i,1] <- (contingency_table(survey_t, vep_t, i)[1,2] + 
+                           contingency_table(survey_t, vep_t, i)[2,1]) / 79
+  
+  #Survey vs. UPDA
+  percent_error[i,2] <- (contingency_table(survey_t, upda_t, i)[1,2] + 
+                           contingency_table(survey_t, upda_t, i)[2,1]) / 79
+  
+  #Survey vs. CA
+  percent_error[i,3] <- (contingency_table(survey_t, ca_t, i)[1,2] + 
+                           contingency_table(survey_t, ca_t, i)[2,1]) / 79
+  
+  #VEP vs. UPDA
+  percent_error[i,4] <- (contingency_table(vep_t, upda_t, i)[1,2] + 
+                           contingency_table(vep_t, upda_t, i)[2,1]) / 79
+  
+  #VEP vs. CA
+  percent_error[i,5] <- (contingency_table(vep_t, ca_t, i)[1,2] + 
+                           contingency_table(vep_t, ca_t, i)[2,1]) / 79
+  
+  #UPDA vs. CA
+  percent_error[i,6] <- (contingency_table(upda_t, ca_t, i)[1,2] + 
+                           contingency_table(upda_t, ca_t, i)[2,1]) / 79
+}
+
+# setwd(outdir)
+write.csv(percent_error, "./OUTPUT/percent_error_UPDA_bins.csv")
+```
+
+##### 6.5.4.1 Plot Re-binned to UPDA
+
+```{r}
+disagreement_summary<-percent_error%>%
+  mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
+         Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
+         VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
+         UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
+         Year=750:1280)
+
+disagreement_survey <- disagreement_summary%>%
+  select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+disagreement_ca <- disagreement_summary%>%
+  select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_upda <- disagreement_summary%>%
+  select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_vep <- disagreement_summary%>%
+  select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+p1<-ggplot(data=chisq_p,aes(V1,V2))+
+  geom_line(col="grey30",lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Chi-Square P-value")+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  labs(x=NULL,
+       y="Disagreement\n(Survey)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Disagreement\n(CA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
+  labs(x=NULL,
+       y="Disagreement\n(UPDA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
+  labs(x="Year",
+       y="Disagreement\n(VEP)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+
+png('./FIGURES/Figure_3_UPDA_bins.png',height=18000,width=14000,res=1200)
+ggarrange(p1,p2,p3,p4,p5,nrow=5,ncol=1,align="hv")
+dev.off()
+
+#adjustcolor("#F5DEC0",alpha=1)
+```
+
+#### 6.5.5 Compare Re-binned to VEP
+
+```{r}
+# run chi square of annual summaries after rebinning
+
+summary <- merge(ca_bintovep,survey_bintovep,by="Year")%>%
+  merge(.,upda_bintovep,by="Year")%>%
+  merge(.,vep_bintovep,by="Year")%>%
+  setNames(c("Year","CA","Survey","UPDA","VEP"))
+
+s_summary <- summary[, c("Year","CA","Survey","VEP","UPDA")]
+
+chisq_p <- matrix(nrow = nrow(s_summary), ncol = 2)
+chisq_p[1:nrow(chisq_p)] <- row_names
+
+for (i in 1:nrow(chisq_p)) {
+  chisq_p[i, 2] <- chisq.test(matrix(c(s_summary[i,2], 79-s_summary[i,2], 
+                                       s_summary[i,3], 79-s_summary[i,3], 
+                                       s_summary[i,4], 79-s_summary[i,4], 
+                                       s_summary[i,5], 79-s_summary[i,5]),
+                                     nrow = 2),
+                              correct = F)$p.value
+}
+
+
+chisq_p <- as.data.frame(chisq_p)
+
+write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_UPDA_bins.csv")
+
+
+# rebin
+ca_bintovep_comp <- rebin(ca_annual,vep_ranges)
+
+survey_bintovep_comp <- rebin(survey_annual,vep_ranges)
+
+upda_bintovep_comp <- rebin(upda_annual,vep_ranges)
+
+vep_bintovep_comp <- vep_annual
+
+
+# transform into site-by-site matrix
+survey_t <- survey_bintoca_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+vep_bintoca_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+upda_t<- upda_bintoca_comp%>%
+  select(c("Site","Year","bins"))%>%
+  pivot_wider(names_from=Site,values_from=bins)
+
+ca_t <- ca_bintoca_comp%>%
+  pivot_wider(names_from=Site,values_from=Occupation)
+
+# calculate pairwise diseagreement
+#### Calculate pairwise disagreement ####
+col_names <- c("Survey/VEP", "Survey/UPDA", "Survey/CA", "VEP/UPDA", "VEP/CA", "UPDA/CA")
+
+percent_error <- as.data.frame(matrix(nrow = length(row_names), 
+                                      ncol = length(col_names), 
+                     dimnames = list(row_names, col_names)))
+
+for (i in 1:nrow(percent_error)) {
+  #Survey vs. VEP
+  percent_error[i,1] <- (contingency_table(survey_t, vep_t, i)[1,2] + 
+                           contingency_table(survey_t, vep_t, i)[2,1]) / 79
+  
+  #Survey vs. UPDA
+  percent_error[i,2] <- (contingency_table(survey_t, upda_t, i)[1,2] + 
+                           contingency_table(survey_t, upda_t, i)[2,1]) / 79
+  
+  #Survey vs. CA
+  percent_error[i,3] <- (contingency_table(survey_t, ca_t, i)[1,2] + 
+                           contingency_table(survey_t, ca_t, i)[2,1]) / 79
+  
+  #VEP vs. UPDA
+  percent_error[i,4] <- (contingency_table(vep_t, upda_t, i)[1,2] + 
+                           contingency_table(vep_t, upda_t, i)[2,1]) / 79
+  
+  #VEP vs. CA
+  percent_error[i,5] <- (contingency_table(vep_t, ca_t, i)[1,2] + 
+                           contingency_table(vep_t, ca_t, i)[2,1]) / 79
+  
+  #UPDA vs. CA
+  percent_error[i,6] <- (contingency_table(upda_t, ca_t, i)[1,2] + 
+                           contingency_table(upda_t, ca_t, i)[2,1]) / 79
+}
+
+# setwd(outdir)
+write.csv(percent_error, "./OUTPUT/percent_error_VEP_bins.csv")
+```
+
+##### 6.5.5.1 Plot Re-binned to VEP
+
+```{r}
+disagreement_summary<-percent_error%>%
+  mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
+         Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
+         VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
+         UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
+         Year=750:1280)
+
+disagreement_survey <- disagreement_summary%>%
+  select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+disagreement_ca <- disagreement_summary%>%
+  select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_upda <- disagreement_summary%>%
+  select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
+  gather(Method,error,-Year)
+
+disagreement_vep <- disagreement_summary%>%
+  select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
+  gather(Method,error,-Year)
+
+p1<-ggplot(data=chisq_p,aes(V1,V2))+
+  geom_line(col="grey30",lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Chi-Square P-value")+
+  theme_minimal()+
+  theme(legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  labs(x=NULL,
+       y="Disagreement\n(Survey)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Disagreement\n(CA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
+  labs(x=NULL,
+       y="Disagreement\n(UPDA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
+  labs(x="Year",
+       y="Disagreement\n(VEP)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+
+png('./FIGURES/Figure_3_VEP_bins.png',height=18000,width=14000,res=1200)
+ggarrange(p1,p2,p3,p4,p5,nrow=5,ncol=1,align="hv")
+dev.off()
+
+#adjustcolor("#F5DEC0",alpha=1)
+```
+
+## Appendix A: Misc. Code
+
+```{r}
+#rectangles for stuff
+
+
+# png('./FIGURES/Figure_UPDAtest.png',height=12000,width=24000,res=1200)
+# ggplot(data=upda_annual,aes(Year,Occupation))+
+#   geom_line()+
+#   facet_wrap(~Site)
+# dev.off()
+
+
+# #survey bins
+#   annotate("rect",xmin=900,xmax=999,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)
+#   
+#   
+# #cabins
+#   annotate("rect",xmin=700,xmax=799,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1180,xmax=1224,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)
+#   
+#   
+# #vep bins
+#   annotate("rect",xmin=700,xmax=724,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=800,xmax=839,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)
+# 
+# #upda bins
+#   annotate("rect",xmin=800,xmax=874,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=925,xmax=974,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)+
+#   annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=80,col=NA,fill="grey75",alpha=0.20)
+
+
+# df_summary_plot <- merge(ca_sum,survey_sum,by="Year")%>%
+#   merge(.,vep_sum,by="Year")%>%
+#   merge(.,upda_sum,by="Year")%>%
+#   setNames(c("Year","CA","Survey","VEP","UPDA"))%>%
+#   gather(Method,Count,-Year)
+# 
+# p1<-ggplot(data=df_summary_plot,aes(Year,Count))+
+#   geom_line(aes(col=Method),lwd=1.5)+
+#   scale_color_manual(values=c("#e07a5f","#3d405b","#81b29a","#f2cc8f"))+
+#   labs(x=NULL,
+#        y="Site Count")+
+#   theme_minimal()+
+#   theme(legend.position="none",
+#         panel.grid.minor = element_blank(),
+#         panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
+#         axis.title.y = element_text(size=10),
+#         plot.margin = margin(5,5,0,2))
 
 ```
