@@ -957,6 +957,8 @@ write.csv(percent_error, "./OUTPUT/percent_error.csv")
 ##### 6.5.1.1 Plot without Re-binning
 
 ```{r}
+
+chisq_p1 <- read.csv("./OUTPUT/chi_squared_p-values.csv")
 disagreement_summary1<-percent_error%>%
   mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
          Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
@@ -980,17 +982,20 @@ disagreement_vep1 <- disagreement_summary1%>%
   select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
   gather(Method,error,-Year)
 
-p1<-ggplot(data=chisq_p,aes(V1,V2))+
+p1<-ggplot(data=chisq_p1,aes(V1,V2))+
   geom_line(col="grey30",lwd=1.5)+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
   labs(x=NULL,
-       y="Chi-Square P-value")+
+       y="Chi-Square P-value",
+       title="Non-binned")+
   theme_minimal()+
   theme(legend.position="none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
         axis.title.y = element_text(size=15),
         axis.text=element_text(size=13),
+        plot.title=element_text(size=15),
         plot.margin = margin(5,5,0,2))
 
 p2<-ggplot(data=disagreement_survey1 ,aes(Year,error))+
@@ -1194,14 +1199,17 @@ disagreement_vep2 <- disagreement_summary2%>%
 p6<-ggplot(data=chisq_p2,aes(V1,V2))+
   geom_line(col="grey30",lwd=1.5)+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
   labs(x=NULL,
-       y="Chi-Square P-value")+
+       y=NULL,
+       title="Binned to Pecos Class")+
   theme_minimal()+
   theme(legend.position="none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
         axis.title.y = element_text(size=15),
         axis.text=element_text(size=13),
+        plot.title=element_text(size=15),
         plot.margin = margin(5,5,0,2))
 
 p7<-ggplot(data=disagreement_survey2 ,aes(Year,error))+
@@ -1212,7 +1220,7 @@ p7<-ggplot(data=disagreement_survey2 ,aes(Year,error))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   labs(x=NULL,
-       y="Disagreement\n(Survey)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1233,7 +1241,7 @@ p8<-ggplot(data=disagreement_ca2 ,aes(Year,error))+
   scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Disagreement\n(CA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1252,7 +1260,7 @@ p9<-ggplot(data=disagreement_upda2 ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
   labs(x=NULL,
-       y="Disagreement\n(UPDA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1274,7 +1282,7 @@ p10<-ggplot(data=disagreement_vep2 ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
   labs(x="Year",
-       y="Disagreement\n(VEP)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1405,20 +1413,23 @@ disagreement_vep3 <- disagreement_summary3%>%
   select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
   gather(Method,error,-Year)
 
-p15<-ggplot(data=chisq_p3,aes(V1,V2))+
+p11<-ggplot(data=chisq_p3,aes(V1,V2))+
   geom_line(col="grey30",lwd=1.5)+
+  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Chi-Square P-value")+
+       y=NULL,
+       title="Binned to CA")+
   theme_minimal()+
   theme(legend.position="none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
         axis.title.y = element_text(size=15),
         axis.text=element_text(size=13),
+        plot.title=element_text(size=15),
         plot.margin = margin(5,5,0,2))
 
-p16<-ggplot(data=disagreement_survey ,aes(Year,error))+
+p12<-ggplot(data=disagreement_survey3 ,aes(Year,error))+
   annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   geom_line(aes(col=Method),lwd=1.5)+
@@ -1426,7 +1437,7 @@ p16<-ggplot(data=disagreement_survey ,aes(Year,error))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   labs(x=NULL,
-       y="Disagreement\n(Survey)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1435,7 +1446,7 @@ p16<-ggplot(data=disagreement_survey ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p17<-ggplot(data=disagreement_ca ,aes(Year,error))+
+p13<-ggplot(data=disagreement_ca3 ,aes(Year,error))+
   annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1447,7 +1458,7 @@ p17<-ggplot(data=disagreement_ca ,aes(Year,error))+
   scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Disagreement\n(CA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1456,7 +1467,7 @@ p17<-ggplot(data=disagreement_ca ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p18<-ggplot(data=disagreement_upda ,aes(Year,error))+
+p14<-ggplot(data=disagreement_upda3 ,aes(Year,error))+
   annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1466,7 +1477,7 @@ p18<-ggplot(data=disagreement_upda ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
   labs(x=NULL,
-       y="Disagreement\n(UPDA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1475,7 +1486,7 @@ p18<-ggplot(data=disagreement_upda ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p19<-ggplot(data=disagreement_vep ,aes(Year,error))+
+p15<-ggplot(data=disagreement_vep3 ,aes(Year,error))+
   annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1488,7 +1499,7 @@ p19<-ggplot(data=disagreement_vep ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
   labs(x="Year",
-       y="Disagreement\n(VEP)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1522,9 +1533,9 @@ for (i in 1:nrow(chisq_p)) {
 }
 
 
-chisq_p <- as.data.frame(chisq_p)
+chisq_p4 <- as.data.frame(chisq_p)
 
-write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_UPDA_bins.csv")
+write.csv(chisq_p4, "./OUTPUT/chi_squared_p-values_UPDA_bins.csv")
 
 
 # rebin
@@ -1594,43 +1605,46 @@ write.csv(percent_error, "./OUTPUT/percent_error_UPDA_bins.csv")
 ##### 6.5.4.1 Plot Re-binned to UPDA
 
 ```{r}
-disagreement_summary<-percent_error%>%
+disagreement_summary4<-percent_error%>%
   mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
          Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
          VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
          UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
          Year=750:1280)
 
-disagreement_survey <- disagreement_summary%>%
+disagreement_survey4 <- disagreement_summary4%>%
   select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
   gather(Method,error,-Year)
 
-disagreement_ca <- disagreement_summary%>%
+disagreement_ca4 <- disagreement_summary4%>%
   select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
   gather(Method,error,-Year)
 
-disagreement_upda <- disagreement_summary%>%
+disagreement_upda4 <- disagreement_summary4%>%
   select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
   gather(Method,error,-Year)
 
-disagreement_vep <- disagreement_summary%>%
+disagreement_vep4 <- disagreement_summary4%>%
   select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
   gather(Method,error,-Year)
 
-p1<-ggplot(data=chisq_p,aes(V1,V2))+
+p16<-ggplot(data=chisq_p4,aes(V1,V2))+
   geom_line(col="grey30",lwd=1.5)+
+  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Chi-Square P-value")+
+       y="Chi-Square P-value",
+       title="Binned to UPDA Phases")+
   theme_minimal()+
   theme(legend.position="none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
         axis.title.y = element_text(size=15),
         axis.text=element_text(size=13),
+        plot.title=element_text(size=15),
         plot.margin = margin(5,5,0,2))
 
-p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
+p17<-ggplot(data=disagreement_survey4 ,aes(Year,error))+
   annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   geom_line(aes(col=Method),lwd=1.5)+
@@ -1638,7 +1652,7 @@ p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   labs(x=NULL,
-       y="Disagreement\n(Survey)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1647,7 +1661,7 @@ p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
+p18<-ggplot(data=disagreement_ca4 ,aes(Year,error))+
   annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1659,7 +1673,7 @@ p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
   scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Disagreement\n(CA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1668,7 +1682,7 @@ p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
+p19<-ggplot(data=disagreement_upda4 ,aes(Year,error))+
   annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1678,7 +1692,7 @@ p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
   labs(x=NULL,
-       y="Disagreement\n(UPDA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1687,7 +1701,7 @@ p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
+p20<-ggplot(data=disagreement_vep4 ,aes(Year,error))+
   annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1700,7 +1714,7 @@ p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
   labs(x="Year",
-       y="Disagreement\n(VEP)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1708,13 +1722,6 @@ p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
         axis.title.y = element_text(size=15),
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
-
-
-png('./FIGURES/Figure_3_UPDA_bins.png',height=18000,width=14000,res=1200)
-ggarrange(p1,p2,p3,p4,p5,nrow=5,ncol=1,align="hv")
-dev.off()
-
-#adjustcolor("#F5DEC0",alpha=1)
 ```
 
 #### 6.5.5 Compare Re-binned to VEP
@@ -1722,9 +1729,9 @@ dev.off()
 ```{r}
 # run chi square of annual summaries after rebinning
 
-summary <- merge(ca_bintovep,survey_bintovep,by="Year")%>%
-  merge(.,upda_bintovep,by="Year")%>%
-  merge(.,vep_bintovep,by="Year")%>%
+summary <- merge(ca_bintovep_sum,survey_bintovep_sum,by="Year")%>%
+  merge(.,upda_bintovep_sum,by="Year")%>%
+  merge(.,vep_bintovep_sum,by="Year")%>%
   setNames(c("Year","CA","Survey","UPDA","VEP"))
 
 s_summary <- summary[, c("Year","CA","Survey","VEP","UPDA")]
@@ -1742,9 +1749,9 @@ for (i in 1:nrow(chisq_p)) {
 }
 
 
-chisq_p <- as.data.frame(chisq_p)
+chisq_p5 <- as.data.frame(chisq_p)
 
-write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_UPDA_bins.csv")
+write.csv(chisq_p5, "./OUTPUT/chi_squared_p-values_UPDA_bins.csv")
 
 
 # rebin
@@ -1814,43 +1821,46 @@ write.csv(percent_error, "./OUTPUT/percent_error_VEP_bins.csv")
 ##### 6.5.5.1 Plot Re-binned to VEP
 
 ```{r}
-disagreement_summary<-percent_error%>%
+disagreement_summary5<-percent_error%>%
   mutate(CA_average_error = (`Survey/CA`+`UPDA/CA`+`VEP/CA`)/3,
          Survey_average_error = (`Survey/CA`+`Survey/UPDA`+`Survey/VEP`)/3,
          VEP_average_error = (`VEP/CA`+`VEP/UPDA`+`Survey/VEP`)/3,
          UPDA_average_error = (`Survey/UPDA`+`VEP/UPDA`+`UPDA/CA`)/3,
          Year=750:1280)
 
-disagreement_survey <- disagreement_summary%>%
+disagreement_survey5 <- disagreement_summary5%>%
   select(c("Year","Survey_average_error","Survey/CA","Survey/UPDA","Survey/VEP"))%>%
   gather(Method,error,-Year)
 
-disagreement_ca <- disagreement_summary%>%
+disagreement_ca5 <- disagreement_summary5%>%
   select(c("Year","CA_average_error","Survey/CA","UPDA/CA","VEP/CA"))%>%
   gather(Method,error,-Year)
 
-disagreement_upda <- disagreement_summary%>%
+disagreement_upda5 <- disagreement_summary5%>%
   select(c("Year","UPDA_average_error","Survey/UPDA","VEP/UPDA","UPDA/CA"))%>%
   gather(Method,error,-Year)
 
-disagreement_vep <- disagreement_summary%>%
+disagreement_vep5 <- disagreement_summary5%>%
   select(c("Year","VEP_average_error","VEP/CA","VEP/UPDA","Survey/VEP"))%>%
   gather(Method,error,-Year)
 
-p1<-ggplot(data=chisq_p,aes(V1,V2))+
+p21<-ggplot(data=chisq_p5,aes(V1,V2))+
   geom_line(col="grey30",lwd=1.5)+
+  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Chi-Square P-value")+
+       y=NULL,
+       title="Binned to VEP Phases")+
   theme_minimal()+
   theme(legend.position="none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_line(linewidth = 0.1, color = "grey75"),
         axis.title.y = element_text(size=15),
         axis.text=element_text(size=13),
+        plot.title=element_text(size=15),
         plot.margin = margin(5,5,0,2))
 
-p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
+p22<-ggplot(data=disagreement_survey5 ,aes(Year,error))+
   annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   geom_line(aes(col=Method),lwd=1.5)+
@@ -1858,7 +1868,7 @@ p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   labs(x=NULL,
-       y="Disagreement\n(Survey)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1867,7 +1877,7 @@ p2<-ggplot(data=disagreement_survey ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
+p23<-ggplot(data=disagreement_ca5 ,aes(Year,error))+
   annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1879,7 +1889,7 @@ p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
   scale_color_manual(values=c("#E07A5F","#E07A5F40","#E07A5F40","#E07A5F40"))+
   scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
   labs(x=NULL,
-       y="Disagreement\n(CA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1888,7 +1898,7 @@ p3<-ggplot(data=disagreement_ca ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
+p24<-ggplot(data=disagreement_upda5 ,aes(Year,error))+
   annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1898,7 +1908,7 @@ p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#BCD1C580","#BCD1C580","#81B29A","#BCD1C580"))+
   labs(x=NULL,
-       y="Disagreement\n(UPDA)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1907,7 +1917,7 @@ p4<-ggplot(data=disagreement_upda ,aes(Year,error))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
+p25<-ggplot(data=disagreement_vep5 ,aes(Year,error))+
   annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
   annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
@@ -1920,7 +1930,7 @@ p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
   scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
   scale_color_manual(values=c("#F5DEC0BF","#F5DEC0BF","#F5DEC0BF","#f2cc8f"))+
   labs(x="Year",
-       y="Disagreement\n(VEP)")+
+       y=NULL)+
   theme_minimal()+
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
@@ -1930,8 +1940,12 @@ p5<-ggplot(data=disagreement_vep ,aes(Year,error))+
         plot.margin = margin(5,5,0,2))
 
 
-png('./FIGURES/Figure_3_VEP_bins.png',height=18000,width=14000,res=1200)
-ggarrange(p1,p2,p3,p4,p5,nrow=5,ncol=1,align="hv")
+png('./FIGURES/Figure_3.png',height=8000,width=15000,res=600)
+ggarrange(p1,p6,p11,p16,p21,
+          p2,p7,p12,p17,p22,
+          p3,p8,p13,p18,p23,
+          p4,p9,p14,p19,p24,
+          p5,p10,p15,p20,p25,nrow=5,ncol=5,align="hv",heights=c(0.75,1,1,1,1))
 dev.off()
 
 #adjustcolor("#F5DEC0",alpha=1)
