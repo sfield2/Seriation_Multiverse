@@ -1,0 +1,21 @@
+Type,BegDate,EndDate,Included in Chronology Building,Ceramic Type
+Indeterminate.Gray,575,1280,FALSE,"Mesa Verde Gray ware, Undifferentiated"
+Indeterminate.Corrugated,920,1280,FALSE,"Mesa Verde Corrugated Gray Ware, Undifferentiated"
+Indeterminate.B.W,575,1280,FALSE,"Mesa Verde White Ware, Undifferentiated"
+Indeterminate.White,575,1280,FALSE,"Mesa Verde White Ware, Undifferentiated"
+Indeterminate.B.R,700,1050,FALSE,"San Juan Red Ware, Undifferentiated"
+Chapin.Gray,575,980,TRUE,Chapin Gray
+Moccasin.Gray,800,980,TRUE,Moccasin Gray
+Mancos.Gray,880,1060,TRUE,Mancos Gray
+Mancos.Corrugated,920,1180,TRUE,Mancos Corrugated
+Dolores.Corrugated,1100,1200,TRUE,Dolores Corrugated
+Mesa.Verde.Corrugated,1100,1280,TRUE,Mesa Verde Corrugated
+Chapin.B.W,575,880,TRUE,Chapin Black-on-white
+Piedra.B.W,800,920,TRUE,Piedra Black-on-white
+Cortez.B.W,880,1060,TRUE,Cortez Black-on-white
+Mancos.B.W,980,1180,TRUE,Mancos Black-on-white
+McElmo.B.W,1060,1260,TRUE,McElmo Black-on-white
+Mesa.Verde.B.W,1180,1280,TRUE,Mesa Verde Black-on-white
+Abajo.R.O,760,880,TRUE,Abajo Red-on-orange
+Bluff.B.R,800,925,TRUE,Bluff Black-on-red
+Deadmans.B.R,880,1050,TRUE,Deadmans (La Plata) Black-on-red
