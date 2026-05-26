@@ -17,7 +17,7 @@ View the raw source code and output at: provide link
 
 > Glowacki, Donna M., Katherine Portman, and Sean Field. 2026. *Methods Matters: Assessing the Seriation Multiverse in the U.S. Southwest*. Journal of Archaeological Method and Theory, Under Review.
 >
-> > Glowacki, Donna M., Katherine Portman, and Sean Field. 2026. *Research Compendium for Methods Matters: Assessing the Seriation Multiverse in the U.S. Southwest*. Journal of Archaeological Method and Theory. \[DOI\]
+> Glowacki, Donna M., Katherine Portman, and Sean Field. 2026. *Research Compendium for Methods Matters: Assessing the Seriation Multiverse in the U.S. Southwest*. Journal of Archaeological Method and Theory. \[DOI\]
 
 ## 1.0 Set Up Environment
 
@@ -350,20 +350,23 @@ summarize_ceramics <- function(binned_data){
 
 ## 2.0 Import Study Area Extent, Sites, and Raw Ceramic Counts
 
-1.  `sites`:
+1.  `sites`: This is the Park Mesa site location data, derived as part of the Community Centers Reassessment Survey. **Note:** This data has not been published publicly, and due to sensitive information including archaeological attributes and site locations, the data set is not available.
+2.  `master_pottery`: This is Park Mesa ceramic data, collected during the Community Centers Reassessment Survey.
 
 ```{r}
 #| echo: false
 #| warning: false
 sites <- st_read("./DATA/Spatial/ParkMesa_sites.gpkg")
 
-# set number of sites for later analysis
-site_threshold <- nrow(sites)
-
-master_pottery <- read.csv("./DATA/Ceramics/PM_ceramics.csv")
+master_pottery <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/PM_ceramics.csv",header=T,fileEncoding = 'UTF-8-BOM')
 ```
 
+Set the date ranges associated with the phase configurations of each method.
+
 ```{r}
+
+# set number of sites for later analysis
+site_threshold <- nrow(sites)
 
 ca_ranges<- data.frame(ranges = c("0700-0799","0800-0879","0880-0919","0920-0979","0980-1019","1020-1059","1060-1099","1100-1179","1180-1249","1250-1280"), 
            period = 1:10)
@@ -372,7 +375,7 @@ pecosclass_ranges <- data.frame(ranges=c("0700-0899","0900-999","0900-1149","105
 
 vep_ranges <-data.frame(ranges=c("0700-0724","0725-0799","0800-0839","0840-0879","0880-0919","0920-0979","0980-1019","1020-1059","1060-1099","1100-1139","1140-1179","1180-1224","1225-1259","1260-1280"),period=c("ph6","ph7","ph8","ph9","ph10","ph11","ph12","ph13","ph14","ph15","ph16","ph17","ph18","ph19"))
 
-cybersw_ranges <- read.csv("./DATA/Ceramics/UPDA_Ceramic_TypesandDatesfromCyberSW.csv")%>%
+cybersw_ranges <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/UPDA_Ceramic_TypesandDatesfromCyberSW.csv",header=T,fileEncoding = 'UTF-8-BOM')%>%
   select(c("Type","BegDate","EndDate"))%>%
   setNames(c("Type","Begin","End"))
 
@@ -385,18 +388,21 @@ fifty_ranges_summary <- data.frame(begin=c(700,750,800,850,900,950,1000,1050,110
 
 ## 3.0 Read in Pre-analyzed Seriation Results
 
-`vep`:
+`vep`: Occupational estimates from the Village Ecodynamics Project (VEP), which are derived from the VEP II north study area. Analyses of the VEP II data can be found in Schwindt et al. (2016: [DOI](http://doi.org/10.7183/0002-7316.81.1.74)), which includes additions/alterations to an earlier (VEP I) database (Ortman et al. 2007: [DOI](https://doi.org/10.2307/40035813)).
 
-`pecosclass`:
+The database used in this study is a limited version of the VEP II north database, which before filtering and subsetting contains 9286 site records. The data was subset to include only settlements included in the study area, resulting in 79 site records.
+
+`pecosclass`: Occupational estimates from the Chapin 5 BAER report (Ives et al. 2002).
 
 ```{r}
-vep <- read.csv("./DATA/Occupations/vep_output.csv")
-pecosclass <- read.csv("./DATA/Occupations/survey_output.csv")
+vep <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/survey_occupations.csv",header=T,fileEncoding = 'UTF-8-BOM')
+
+pecosclass <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/vep_occupations.csv",header=T,fileEncoding = 'UTF-8-BOM')
 ```
 
 ## 4.0 Correspondence Analysis
 
-Transform diagnostic sherds into proportions then run correspondence analysis.
+Transform diagnostic sherds from the `master_pottery` database into proportions then run correspondence analysis.
 
 ```{r}
 # if cut off on ceramics is >= 5
@@ -410,7 +416,7 @@ ca <- nsj_ca_seriation(df_diag_allprop)
 
 ## 5.0 UPDA
 
-Spread master_pottery into types and assign counts
+Gather diagnostic sherd counts from the `master_pottery` database and run the uniform probability density function.
 
 ```{r}
 diagnostic_list <- c("Abajo.R.O","Bluff.B.R","Chapin.B.W","Chapin.Gray","Cortez.B.W","Deadmans.B.R","Dolores.Corrugated","Mancos.B.W","Mancos.Corrugated","Mancos.Gray","McElmo.B.W","Mesa.Verde.B.W","Mesa.Verde.Corrugated","Moccasin.Gray","Piedra.B.W")
@@ -422,9 +428,7 @@ upda_ceramics <- master_pottery%>%
   mutate(Chronology=ifelse(.$Type%in% diagnostic_list,1,0))%>%
   filter(Type!="Other",
          Count > 0)
-```
 
-```{r}
 site_list <- unique(upda_ceramics$Site.Number)
 
 ## Run analysis for all sites
@@ -455,7 +459,21 @@ for (i in 1:length(site_list)) {
 
 ## 6.0 Analysis
 
+Analysis involves five primary steps:
+
+1.  Transforming the occupational assignments into annual reconstructions to enable site-by-site annual comparisons.
+    1.  Annual occupations are summarized across each method to identify the total occupational estimate based on each method (**Figure 2** of manuscript).
+2.  Merge occupational assignments with spatial data to perform qualitative settlement analysis (**Figure 3** of manuscript). **Note:** This component of the analysis will be inaccessible to most users because the associated site locations are sensitive data and are not publicly available.
+3.  Measure disagreements between site occupations using:
+    1.  Chi-Squared test of all occupations (presence and absence) according to method each year.
+    2.  Percentage of disagreement (presence and absence) between each pair of methods.
+    3.  Results are tabulated and visualized in **Table 3**, **Figure 4**, and **Figure 5** of the manuscript.
+4.  Re-binning occupations to the phase configurations of each method. Results are visualized in **Figure 6** of the manuscript.
+5.  Identify the most disagreeable sites, tabulate the occurrence of multi-component (and discrete) occupations, and identify differences in ceramics. Results are visualized in **Figure 7** of the manuscript.
+
 ### 6.1 Transform Occupation assignments into Annual Reconstructions
+
+Occupations assigned to phases are spread out to annual time-series for all methods.
 
 ```{r}
 ca_annual <- ca%>%
@@ -522,6 +540,8 @@ rm(pecosclass_annual_nontransition,pecosclass_annual_transition)
 
 #### 6.1.1 Figure 2: Plot Summary Counts
 
+Annual time-series are summarized across (within) each method to calculate the total number of sites occupied each year according to each method.
+
 ```{r}
 pecosclass_sum <- pecosclass_annual%>%
   select(c("Site","Year","Occupation"))%>%
@@ -542,15 +562,6 @@ upda_sum <- upda_annual%>%
   select(c("Site","Year","Occupation"))%>%
   group_by(Year)%>%
   summarise(total_count=sum(Occupation,na.rm=T))
-
-
-# full_summary <- merge(pecosclass_sum,ca_sum,by="Year")%>%
-#   merge(.,vep_sum,by="Year")%>%
-#   merge(.,upda_sum,by="Year")%>%
-#   setNames(c("Year","pecosclass","CA","VEP","UPDA"))%>%
-#   gather(Method,Count,-Year)
-# 
-# full_summary$Method <- factor(full_summary$Method, levels=c("pecosclass","CA","UPDA","VEP"))
 
 pecosclass_ranges_plot <- pecosclass_ranges%>%
   separate(ranges,into=c("start","end"),sep="-")%>%
@@ -576,8 +587,6 @@ vep_ranges_plot <- vep_ranges%>%
   separate(ranges,into=c("start","end"),sep="-")%>%
   mutate(start=as.numeric(start),
          end=as.numeric(end))
-  
-
 
 p1<-ggplot()+
   geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=4,ymax=5),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1.25)+
@@ -688,9 +697,9 @@ ggarrange(p1,p2,p3,p4,p5, nrow=5,ncol=1,align="hv",heights=c(1.5,1,1,1,1))
 dev.off()
 ```
 
-### 6.3 Merge with spatial data
+### 6.2 Merge with spatial data
 
-These data are used fro Figure 3.
+**Note:** This component of the analysis will be inaccessible to most users because the associated site locations are sensitive data and are not publicly available.
 
 ```{r}
 sites_stripped <- sites%>%
@@ -707,15 +716,20 @@ ca_spatial <- merge(sites_stripped,ca1,by="Site")
 upda_spatial <- merge(sites_stripped,upda1,by="Site")
 vep_spatial <- merge(sites_stripped,vep1,by="Site")
 
-#st_write(pecosclass_spatial,"./OUTPUT/Spatial/pecosclass_spatial.gpkg")
-#st_write(ca_spatial,"./OUTPUT/Spatial/ca_spatial.gpkg")
-#st_write(upda_spatial,"./OUTPUT/Spatial/upda_spatial.gpkg")
-#st_write(vep_spatial,"./OUTPUT/Spatial/vep_spatial.gpkg")
+#st_write(pecosclass_spatial,"./OUTPUT/pecosclass_spatial.gpkg")
+#st_write(ca_spatial,"./OUTPUT/ca_spatial.gpkg")
+#st_write(upda_spatial,"./OUTPUT/upda_spatial.gpkg")
+#st_write(vep_spatial,"./OUTPUT/vep_spatial.gpkg")
 ```
 
-### 6.4 Disagreements
+### 6.3 Disagreements
 
-#### 6.4.1 Chi Squared
+Two types of disagreement between methods are compared:
+
+1.  Chi-Squared test, which is used to measure the overall (dis)similarity between the number of sites counted as "occupied" or "unoccupied" according to all four methods each year
+2.  Percentage disagreement, as calculated from the associated presence/absence contingency tables.
+
+#### 6.3.1 Chi Squared
 
 ```{r}
 #| warning: false 
@@ -736,7 +750,7 @@ for (i in 1:nrow(chisq_p)) {
 write.csv(chisq_p, "./OUTPUT/chi_squared_p-values.csv")
 ```
 
-#### 6.4.2 Disagreement Frequencies
+#### 6.3.2 Disagreement Frequencies
 
 Two steps:
 
@@ -757,14 +771,12 @@ ca_t <- ca_annual%>%
 upda_t <- upda_annual%>%
   pivot_wider(names_from=Site,values_from=Occupation)
 
-
 row_names <- 750:1280
 
 summary <- merge(ca_sum,vep_sum,by="Year")%>%
   merge(.,upda_sum,by="Year")%>%
   merge(.,pecosclass_sum,by="Year")%>%
   setNames(c("Year","CA","VEP","UPDA","pecosclass"))
-
 
 col_names <- c("pecosclass_CA","pecosclass_UPDA","pecosclass_VEP","CA_UPDA", "CA_VEP", "UPDA_VEP")
 
@@ -800,15 +812,12 @@ for (i in 1:nrow(percent_error)) {
   
   
 t <-chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  
-  
 }
 
 write.csv(percent_error, "./OUTPUT/percent_error.csv",row.names=F)
 ```
 
-#### 6.4.3 Table 3: Table of Disagreements
+#### 6.3.3 Table 3: Table of Disagreements
 
 ```{r}
 percent_error <- read.csv("./OUTPUT/percent_error.csv")
@@ -844,7 +853,9 @@ table_3 <- rbind(table_3, "All_data"=list(mean=mean(all_summary$value),
 write.csv(table_3,"./OUTPUT/Table3_raw.csv")
 ```
 
-#### 6.4.4 Figure 4: Plot Chi Squared and Disagreement Results
+#### 6.3.4 Figure 4: Plot Chi Squared and Disagreement Results
+
+Pull Chi-Squared results and percentage disagreements into a single plot.
 
 ```{r}
 #| warning: false 
@@ -866,8 +877,6 @@ disagreement_vep1 <- disagreement_summary1%>%
   select(c("Year","VEP_average_error","pecosclass_VEP","CA_VEP","UPDA_VEP"))%>%
   gather(Method,error,-Year)
 
-
-
 ### REFACTOR FOR CLEAN PLOTTING
 disagreement_pecosclass1$Method <- factor(disagreement_pecosclass1$Method,levels=c("pecosclass_CA","pecosclass_UPDA","pecosclass_VEP","pecosclass_average_error"))
 
@@ -877,8 +886,6 @@ disagreement_upda1$Method <- factor(disagreement_upda1$Method,levels=c("pecoscla
 
 disagreement_vep1$Method <- factor(disagreement_vep1$Method,levels=c("pecosclass_VEP","CA_VEP","UPDA_VEP","VEP_average_error"))
 ###
-
-
 
 p1<-ggplot(data=chisq_p1,aes(V1,V2))+
   geom_line(col="grey30",lwd=1.5)+
@@ -981,7 +988,9 @@ ggarrange(p1,p2,p3,p4,p5, nrow=5,ncol=1,align="hv",heights=c(0.75,1,1,1,1))
 dev.off()
 ```
 
-#### 6.4.5 Figure 5: Pair-wise Disagreements
+#### 6.3.5 Figure 5: Pair-wise Disagreements
+
+Separate percentage disagreements into pairs and plot with phase configurations to visualize the impact of phases on disagreement.
 
 ```{r}
 percent_error <- read.csv("./OUTPUT/percent_error.csv")%>%
@@ -1108,9 +1117,11 @@ ggarrange(p1,p2,p3,p4,p5,p6, nrow=2,ncol=3,align="hv")
 dev.off()
 ```
 
-### 6.5 Rebinning to Different Phase Configurations
+### 6.4 Rebinning to Different Phase Configurations
 
-#### 6.5.1 Re-bin to Pecos
+Re-binning occupations to the phase configurations of each method.
+
+#### 6.4.1 Re-bin to Pecos Classification
 
 ```{r}
 #| warning: false
@@ -1146,7 +1157,7 @@ pecosclass_bins_summary <- merge(ca_bintopecosclass_sum,vep_bintopecosclass_sum,
   gather(Method,Count,-Year)
 ```
 
-#### 6.5.2 Re-bin to VEP
+#### 6.4.2 Re-bin to VEP
 
 ```{r}
 ca_bintovep <- rebin(ca_annual,vep_ranges)
@@ -1181,7 +1192,7 @@ vep_bins_summary <- merge(ca_bintovep_sum,pecosclass_bintovep_sum,by="Year")%>%
   gather(Method,Count,-Year)
 ```
 
-#### 6.5.3 Re-bin to CA
+#### 6.4.3 Re-bin to CA
 
 ```{r}
 pecosclass_bintoca <- rebin(pecosclass_annual,ca_ranges)
@@ -1216,7 +1227,7 @@ ca_bins_summary <- merge(pecosclass_bintoca_sum,vep_bintoca_sum,by="Year")%>%
   gather(Method,Count,-Year)
 ```
 
-#### 6.5.4 Re-bin to UPDA
+#### 6.4.4 Re-bin to UPDA
 
 ```{r}
 pecosclass_bintoupda <- rebin(pecosclass_annual,upda_ranges)
@@ -1251,7 +1262,7 @@ upda_bins_summary <- merge(pecosclass_bintoupda_sum,vep_bintoupda_sum,by="Year")
   gather(Method,Count,-Year)
 ```
 
-#### 6.5.5 Figure 6: Plot Effects of Re-binning
+#### 6.4.5 Figure 6: Plot Effects of Re-binning
 
 ```{r}
 p1<-ggplot(data=pecosclass_bintopecosclass_sum,aes(Year,total_count))+
@@ -1562,16 +1573,16 @@ ggarrange(p1,p2,p3,p4,
 dev.off()
 ```
 
-### 6.6 Disagreeable Sites, Multicomponent Occupation, and Red Wares
+### 6.5 Ceramics Associated with Most Disagreement
 
-1.  Find most disagreeable sites
-2.  Find sites with the greatest number of components
-3.  Look at ceramics of most disagreeable sites with high components in relationship to entire assemblage.
-    1.  What happens to red wares?
+To help explain why disagreements are occurring, we look at the sites with the greatest number of disagreements, and assess their occupational histories (in terms of the number of components and discrete occupations) as well as their ceramic assemblages.
+
+#### 6.5.1 Identify the Most Disagreeable Sites
+
+Identify sites that have the most disagreement across methods related to occupational assignment. This is conducted by tracking difference between occupation tallies in each time series. Seventeen sites are shown to have more than 200 years where pairs of methods produce different occupations.
 
 ```{r}
 #| warning: false
-### find out which sites most disagreeable
 pecosclass_ca <- abs(pecosclass_t-ca_t)%>%
   select(-c("Year"))%>%
   t()%>%
@@ -1636,7 +1647,12 @@ all_disagreement_site <- all_list%>%
 
 most_disagree_site <- filter(all_disagreement_site, mean_disagreement > 200)%>%
   select(c("Site.Number","mean_disagreement"))
+
 ```
+
+#### 6.5.2 Calculate instances of multi-component and discrete occupation
+
+To understand the effects of multi-component and discrete occupations, both measures are calculated for all sites.
 
 ```{r}
 ca_multi <- ca%>%
@@ -1670,23 +1686,23 @@ component_details <- merge(ca_multi,vep_multi,by="Site.Number")%>%
   merge(.,pecosclass_multi,by="Site.Number")%>%
   select(c("Site.Number","total_phases_ca","total_phases_vep","total_phases_pecosclass","distinct_components_ca","distinct_components_vep","distinct_components_pecosclass"))
 
-mean(component_details$distinct_components_ca)
-mean(component_details$distinct_components_vep)
-
 disagree_and_component <- merge(most_disagree_site,component_details,by="Site.Number")
 
-mean(disagree_and_component$distinct_components_ca)
-mean(disagree_and_component$distinct_components_vep)
+print(paste0("The Mean number of Distinct Components according to CA are:",mean(component_details$distinct_components_ca),sep=""))
+print(paste0("The Mean number of Distinct Components according to VEP are:",mean(component_details$distinct_components_vep),sep=""))
+print(paste0("Among the Most Disagreeable Sites, the Mean number of Distinct Components according to CA are:",mean(disagree_and_component$distinct_components_ca),sep=""))
+print(paste0("Among the Most Disagreeable Sites, the Mean number of Distinct Components according to VEP are:",mean(disagree_and_component$distinct_components_vep),sep=""))
+
 ```
+
+#### 6.5.3 Assess the Ceramic Assemblages of the Most Disagreeable Sites in contrast to the Entire Study Sites
 
 ```{r}
 disagree_ceramics <- sort_ceramics(master_pottery,disagree_components)%>%
   mutate(diff = Prop-master_pottery_plot$Prop)
 
 master_ceramics_prop <- sort_ceramics(master_pottery,master_pottery)
-```
 
-```{r}
 png('./FIGURES/Figure_7.png',height=10000,width=15000,res=1200)
 ggplot()+
   geom_col(data=disagree_ceramics,aes(Type,diff,col=Ware,fill=Ware))+
@@ -1710,7 +1726,9 @@ ggplot()+
 dev.off()
 ```
 
-## Supplemental
+## A. Supplemental
+
+Below is all of the code used for the Supplemental Materials.
 
 #### 6.5.2 Run chi squared of bivariate annual summaries
 
