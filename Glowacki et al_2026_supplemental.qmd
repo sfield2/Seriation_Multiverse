@@ -782,7 +782,6 @@ chi_square <- as.data.frame(matrix(nrow = length(row_names),
                      dimnames = list(row_names, col_names)))
 ```
 
-
 #### 6.9.1 Figure 8
 
 ```{r}
@@ -820,7 +819,6 @@ ggplot()+
         panel.spacing.x = unit(0.5, "cm"))
 dev.off()
 ```
-
 
 #### 6.6.3 Run chi squared of disagreements
 
@@ -2080,4 +2078,199 @@ ggplot()+
 #   group_by(site) %>%
 #   summarise(total_diff = sum(diff), .groups = "drop") %>%
 #   arrange(desc(total_diff))
+```
+
+```{r}
+{r}
+pecosclass_bins_summary <- merge(ca_bintopecosclass_sum,vep_bintopecosclass_sum,by="Year")%>%
+  merge(.,upda_bintopecosclass_sum,by="Year")%>%
+  merge(.,pecosclass_bintopecosclass_sum,by="Year")%>%
+  setNames(c("Year","CA","VEP","UPDA","pecosclass"))
+
+pp_years <- c(825,1025,1225)
+
+summary <- subset(summary,Year %in% pp_years)
+
+chisq_p <- matrix(nrow = length(pp_years), ncol = 2)
+chisq_p[1:nrow(chisq_p)] <- pp_years
+
+for (i in 1:nrow(chisq_p)) {
+  chisq_p[i, 2] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"],summary[i,c("VEP")],site_threshold-summary[i,c("VEP")],summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")]),nrow = 2),correct = F)$p.value
+}
+
+write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_pecosperiods.csv")
+```
+
+```{r}
+chi_square <- as.data.frame(matrix(nrow = length(pp_years), 
+                                      ncol = length(col_names), 
+                     dimnames = list(pp_years, col_names)))
+
+
+for (i in 1:nrow(chi_square)) {
+  ### CHI SQUARED
+  #pecosclass vs. CA
+  chi_square[i,c("pecosclass_CA")] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
+  
+  #pecosclass vs. UPDA
+  chi_square[i,c("pecosclass_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
+  
+  #pecosclass vs. VEP
+  chi_square[i,c("pecosclass_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
+  
+  #CA vs. UPDA
+  chi_square[i,c("CA_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
+  
+  #CA vs. VEP
+  chi_square[i,c("CA_VEP")] <-  chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
+  
+  #UPDA vs. VEP
+  chi_square[i,c("UPDA_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("UPDA")],site_threshold-summary[i,"UPDA"]),nrow = 2),correct=F)$p.value
+}
+
+write.csv(chi_square, "./OUTPUT/chi_squred_p-values_bivariate_pecosperiods.csv",row.names=F)
+```
+
+```{r}
+chisq_p1 <- read.csv("./OUTPUT/chi_squared_p-values.csv")
+
+cohens_summary <- read.csv("./OUTPUT/cohens_kappa.csv")%>%
+  mutate(Year=750:1280)
+
+cohens_summary1<-cohens_summary%>%
+  mutate(pecosclass_average_cohen = (pecosclass_CA+pecosclass_UPDA+pecosclass_VEP)/3,
+         CA_average_cohen = (pecosclass_CA+CA_UPDA+CA_VEP)/3,
+         UPDA_average_cohen = (pecosclass_UPDA+CA_UPDA+UPDA_VEP)/3,
+         VEP_average_cohen = (pecosclass_VEP+CA_VEP+UPDA_VEP)/3,
+         Year=750:1280)
+
+cohens_pecosclass1 <- cohens_summary1%>%
+  select(c("Year","pecosclass_average_cohen","pecosclass_CA","pecosclass_UPDA","pecosclass_VEP"))%>%
+  gather(Method,cohen,-Year)
+
+cohens_ca1 <- cohens_summary1%>%
+  select(c("Year","CA_average_cohen","pecosclass_CA","CA_UPDA","CA_VEP"))%>%
+  gather(Method,cohen,-Year)
+
+cohens_upda1 <- cohens_summary1%>%
+  select(c("Year","UPDA_average_cohen","pecosclass_UPDA","CA_UPDA","UPDA_VEP"))%>%
+  gather(Method,cohen,-Year)
+
+cohens_vep1 <- cohens_summary1%>%
+  select(c("Year","VEP_average_cohen","pecosclass_VEP","CA_VEP","UPDA_VEP"))%>%
+  gather(Method,cohen,-Year)
+
+
+
+### REFACTOR FOR CLEAN PLOTTING
+cohens_pecosclass1$Method <- factor(cohens_pecosclass1$Method,levels=c("pecosclass_CA","pecosclass_UPDA","pecosclass_VEP","pecosclass_average_cohen"))
+
+cohens_ca1$Method <- factor(cohens_ca1$Method,levels=c("pecosclass_CA","CA_UPDA","CA_VEP","CA_average_cohen"))
+
+cohens_upda1$Method <- factor(cohens_upda1$Method,levels=c("pecosclass_UPDA","CA_UPDA","UPDA_VEP","UPDA_average_cohen"))
+
+cohens_vep1$Method <- factor(cohens_vep1$Method,levels=c("pecosclass_VEP","CA_VEP","UPDA_VEP","VEP_average_cohen"))
+###
+
+
+
+p1<-ggplot(data=chisq_p1,aes(V1,V2))+
+  geom_line(col="grey30",lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
+  labs(x=NULL,
+       y="Chi-Square P-value",
+       title="Average Agreement (Cohen's Kappa) by Method")+
+  theme_minimal()+
+  theme(#legend.position="none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.title=element_text(size=15),
+        plot.margin = margin(5,5,0,2))
+
+p2<-ggplot(data=cohens_pecosclass1 ,aes(Year,cohen))+
+  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  labs(x=NULL,
+       y="Cohen's Kappa\n(Pecos Class)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p3<-ggplot(data=cohens_ca1 ,aes(Year,cohen))+
+  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1180,xmax=1249,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#E07A5F40","#E07A5F40","#E07A5F40","#E07A5F"))+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  labs(x=NULL,
+       y="Cohen's Kappa\n(CA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p4<-ggplot(data=cohens_upda1 ,aes(Year,cohen))+
+  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#BCD1C580","#81B29A"))+
+  labs(x=NULL,
+       y="Cohen's Kappa\n(UPDA)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+p5<-ggplot(data=cohens_vep1 ,aes(Year,cohen))+
+  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
+  geom_line(aes(col=Method),lwd=1.5)+
+  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
+  scale_color_manual(values=c("#BFA37366","#BFA37366","#BFA37366","#BFA373"))+
+  labs(x="Year",
+       y="Cohen's Kappa\n(VEP)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        axis.title.y = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(5,5,0,2))
+
+
+png('./FIGURES/Figure_5_CohensKappa.png',height=16000,width=12000,res=1200)
+ggarrange(p1,p2,p3,p4,p5, nrow=5,ncol=1,align="hv",heights=c(0.75,1,1,1,1))
+dev.off()
 ```

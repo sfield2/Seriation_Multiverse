@@ -395,9 +395,9 @@ The database used in this study is a limited version of the VEP II north databas
 `pecosclass`: Occupational estimates from the Chapin 5 BAER report (Ives et al. 2002).
 
 ```{r}
-vep <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/survey_occupations.csv",header=T,fileEncoding = 'UTF-8-BOM')
+vep <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/vep_occupations.csv",header=T,fileEncoding = 'UTF-8-BOM')
 
-pecosclass <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/vep_occupations.csv",header=T,fileEncoding = 'UTF-8-BOM')
+pecosclass <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/survey_occupations.csv",header=T,fileEncoding = 'UTF-8-BOM')
 ```
 
 ## 4.0 Correspondence Analysis
@@ -1730,7 +1730,9 @@ dev.off()
 
 Below is all of the code used for the Supplemental Materials.
 
-#### 6.5.2 Run chi squared of bivariate annual summaries
+#### A.1 Supplemental Figure 1
+
+Chi-Squared Analysis of all Pair-wise Comparisons.
 
 ```{r}
 #| warning: false
@@ -1741,26 +1743,19 @@ chi_square <- as.data.frame(matrix(nrow = length(row_names),
                                       ncol = length(col_names), 
                      dimnames = list(row_names, col_names)))
 
-# t <- matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2)
 
 for (i in 1:nrow(chi_square)) {
-  ### CHI SQUARED
-  #pecosclass vs. CA
+
   chi_square[i,c("pecosclass_CA")] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
+
+    chi_square[i,c("pecosclass_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
   
-  #pecosclass vs. UPDA
-  chi_square[i,c("pecosclass_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  #pecosclass vs. VEP
   chi_square[i,c("pecosclass_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
   
-  #CA vs. UPDA
   chi_square[i,c("CA_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
   
-  #CA vs. VEP
   chi_square[i,c("CA_VEP")] <-  chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
   
-  #UPDA vs. VEP
   chi_square[i,c("UPDA_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("UPDA")],site_threshold-summary[i,"UPDA"]),nrow = 2),correct=F)$p.value
 }
 
@@ -1772,14 +1767,14 @@ chi_square_bivariate <- read.csv("./OUTPUT/chi_squred_p-values_bivariate.csv",ro
 
 chi_square_bivariate$method <- factor(chi_square_bivariate$method,levels=c("pecosclass_CA","pecosclass_UPDA","pecosclass_VEP","CA_UPDA","CA_VEP","UPDA_VEP"),labels=c("Pecos Class & CA","Pecos Class & UPDA","Pecos Class & VEP","CA & UPDA","CA & VEP","UPDA & VEP"))
 
-png('./FIGURES/Supplemental_Figure_4.png',height=14000,width=24000,res=1200)
+png('./FIGURES/Supplemental_Figure_1.png',height=14000,width=24000,res=1200)
 ggplot()+
   geom_line(data=chi_square_bivariate,aes(Year,p_value,col=method),lwd=1)+
   facet_wrap(~method)+
   geom_hline(yintercept=0.05,linetype="dotted",col="grey30",lwd=0.75)+
   labs(x="Year",
        y="P-value",
-       title="Difference in Total Number of Present/Absent Sites for each Pair of Methods ")+
+       title="Chi Squared P-values of Present/Absent Sites for each Pair of Methods ")+
   scale_color_manual(values=c("#8F5D5D","#5F797B","#988675","#B1967D","#E9A377","#BABF95"))+
   theme_minimal()+
   theme(legend.position = "none",
@@ -1793,6 +1788,20 @@ ggplot()+
         panel.spacing.x = unit(0.5, "cm"))
 dev.off()
 ```
+
+#### A.2 Supplemental Table 1
+
+Tabulate summaries of all diagnsotic ceramics for all sites
+
+```{r}
+sup_tbl_1 <- master_pottery%>%
+  select(-c("Source","Indeterminate.Gray","Indeterminate.Corrugated","Indeterminate.White","Indeterminate.B.W","Indeterminate.B.R","Other"))%>% 
+  mutate(total_sum = rowSums(across(where(is.numeric)), na.rm = TRUE))
+
+write.csv(sup_tbl_1, "./OUTPUT/Supplemental_Table_1.csv",row.names=F)
+```
+
+#### A.3 Supplemental Table 2
 
 #### 6.5.3 Run chi square of annual summaries for fifty year bins
 
