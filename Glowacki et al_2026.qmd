@@ -286,68 +286,6 @@ sort_ceramics <- function(all_pottery,sites){
 }
 ```
 
-`cohen_kappa`: Calculates the inter-rater reliability for categorical variables based on a contingency table (pair-wise presence & absence) of site occupation for each year
-
-```{r}
-cohen_kappa <- function(data1,data2, row, n){
-  contingency <- matrix(c(0,0,0,0), nrow = 2,
-                        dimnames = list(dim1 = c("present", "absent"),
-                                        dim2 = c("present", "absent")))
-  for (i in 2:ncol(data1)) {
-    if (data1[row, i] == 1) {
-      if (data2[row, i] == 1) {contingency[1,1] <- contingency[1,1] + 1}
-      else {contingency[1,2] <- contingency[1,2] + 1}
-    } else {
-      if (data2[row, i] == 1) {contingency[2,1] <- contingency[2,1] + 1}
-      else {contingency[2,2] <- contingency[2,2] + 1}
-    }
-  }
-  
-  cm1 <- contingency[1,1]+contingency[2,1]
-
-  cm2 <- contingency[1,2]+contingency[2,2]
-
-  rm1 <- contingency[1,1]+contingency[1,2]
-
-  rm2 <- contingency[2,1]+contingency[2,2]
-  
-  cohen_kappa_score <- (((cm1 * rm1)/(n)) + ((cm2 * rm2)/(n)))/n
-  
-  return(cohen_kappa_score)
-}
-```
-
-`summarize_ceramics`:
-
-```{r}
-summarize_ceramics <- function(binned_data){
-  for(i in 1:nrow(fifty_ranges)){
-    begin <- fifty_ranges_summary[i,1]
-    end <- fifty_ranges_summary[i,2]
-    
-    known_sites <- binned_data%>%
-      filter(Year %in% begin:end,
-         Occupation > 0)%>%
-    distinct(Site)%>%
-    setNames(c("Site.Number"))
-    
-    if(i ==1){
-      ceramics <- sort_ceramics(master_pottery,known_sites)%>%
-        mutate(Year_begin=begin,
-               Year_end=end)
-    }else{
-      new_ceramics <- sort_ceramics(master_pottery,known_sites)%>%
-        mutate(Year_begin=begin,
-               Year_end=end)
-      
-      ceramics <- rbind(ceramics,new_ceramics)
-    }
-  }
-  
-  return(ceramics)
-}
-```
-
 ## 2.0 Import Study Area Extent, Sites, and Raw Ceramic Counts
 
 1.  `sites`: This is the Park Mesa site location data, derived as part of the Community Centers Reassessment Survey. **Note:** This data has not been published publicly, and due to sensitive information including archaeological attributes and site locations, the data set is not available.
@@ -457,7 +395,7 @@ for (i in 1:length(site_list)) {
 }
 ```
 
-## 6.0 Analysis
+## 6.0 Comparative Analysis
 
 Analysis involves five primary steps:
 
@@ -848,9 +786,8 @@ table_3 <- rbind(table_3, "All_data"=list(mean=mean(all_summary$value),
           sd=sd(all_summary$value),
           min=min(all_summary$value),
           max=max(all_summary$value)))
-  
 
-write.csv(table_3,"./OUTPUT/Table3_raw.csv")
+write.csv(table_3,"./OUTPUT/Table_3.csv")
 ```
 
 #### 6.3.4 Figure 4: Plot Chi Squared and Disagreement Results
@@ -1698,10 +1635,10 @@ print(paste0("Among the Most Disagreeable Sites, the Mean number of Distinct Com
 #### 6.5.3 Assess the Ceramic Assemblages of the Most Disagreeable Sites in contrast to the Entire Study Sites
 
 ```{r}
-disagree_ceramics <- sort_ceramics(master_pottery,disagree_components)%>%
-  mutate(diff = Prop-master_pottery_plot$Prop)
-
 master_ceramics_prop <- sort_ceramics(master_pottery,master_pottery)
+
+disagree_ceramics <- sort_ceramics(master_pottery,disagree_and_component)%>%
+  mutate(diff = Prop-master_ceramics_prop$Prop)
 
 png('./FIGURES/Figure_7.png',height=10000,width=15000,res=1200)
 ggplot()+
@@ -1732,7 +1669,7 @@ Below is all of the code used for the Supplemental Materials.
 
 #### A.1 Supplemental Figure 1
 
-Chi-Squared Analysis of all Pair-wise Comparisons.
+Chi-Squared analysis of all pair-wise comparisons.
 
 ```{r}
 #| warning: false
@@ -1791,7 +1728,7 @@ dev.off()
 
 #### A.2 Supplemental Table 1
 
-Tabulate summaries of all diagnsotic ceramics for all sites
+Summary counts of all diagnostic sherds for sites in study area.
 
 ```{r}
 sup_tbl_1 <- master_pottery%>%
@@ -1803,7 +1740,7 @@ write.csv(sup_tbl_1, "./OUTPUT/Supplemental_Table_1.csv",row.names=F)
 
 #### A.3 Supplemental Table 2
 
-#### 6.5.3 Run chi square of annual summaries for fifty year bins
+Chi Squared analysis of all pair-wise comparisons when occupations have been binned to fifty year intervals.
 
 ```{r}
 summary <- merge(pecosclass_binto50_sum,vep_binto50_sum,by="Year")%>%
@@ -1822,125 +1759,97 @@ for (i in 1:nrow(chisq_p)) {
   chisq_p[i, 2] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"],summary[i,c("VEP")],site_threshold-summary[i,c("VEP")],summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")]),nrow = 2),correct = F)$p.value
 }
 
-write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_fiftyyearbins.csv")
+write.csv(chisq_p, "./OUTPUT/Supplemental_Table_2.csv")
 ```
 
-#### 6.5.4 Run chi squared of bivariate comparisons for fifty year bins
+#### A.4 Supplemental Table 3
+
+Summarize ceramic assemblages for all sites in fifty year bins based on occupation assigned through each method.
 
 ```{r}
-chi_square <- as.data.frame(matrix(nrow = length(fifty_years), 
-                                      ncol = length(col_names), 
-                     dimnames = list(fifty_years, col_names)))
-
-
-for (i in 1:nrow(chi_square)) {
-  ### CHI SQUARED
-  #pecosclass vs. CA
-  chi_square[i,c("pecosclass_CA")] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
+summarize_ceramics <- function(binned_data){
+  for(i in 1:nrow(fifty_ranges)){
+    begin <- fifty_ranges_summary[i,1]
+    end <- fifty_ranges_summary[i,2]
+    
+    known_sites <- binned_data%>%
+      filter(Year %in% begin:end,
+         Occupation > 0)%>%
+    distinct(Site)%>%
+    setNames(c("Site.Number"))
+    
+    if(i ==1){
+      ceramics <- sort_ceramics(master_pottery,known_sites)%>%
+        mutate(Year_begin=begin,
+               Year_end=end)
+    }else{
+      new_ceramics <- sort_ceramics(master_pottery,known_sites)%>%
+        mutate(Year_begin=begin,
+               Year_end=end)
+      
+      ceramics <- rbind(ceramics,new_ceramics)
+    }
+  }
   
-  #pecosclass vs. UPDA
-  chi_square[i,c("pecosclass_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  #pecosclass vs. VEP
-  chi_square[i,c("pecosclass_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  #CA vs. UPDA
-  chi_square[i,c("CA_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
-  
-  #CA vs. VEP
-  chi_square[i,c("CA_VEP")] <-  chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
-  
-  #UPDA vs. VEP
-  chi_square[i,c("UPDA_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("UPDA")],site_threshold-summary[i,"UPDA"]),nrow = 2),correct=F)$p.value
+  return(ceramics)
 }
-
-write.csv(chi_square, "./OUTPUT/chi_squred_p-values_bivariate__fiftyyearbins.csv",row.names=F)
 ```
 
-#### 6.5.5 Run chi square of annual summaries for pecos periods
+```{r}
+pecos_ceramics <- summarize_ceramics(pecosclass_binto50)%>%
+  select(-c("Ware","Prop"))%>%
+  pivot_wider(names_from = Type, values_from = Count)%>%
+  mutate(Method="Pecos Classification")
+ca_ceramics <- summarize_ceramics(ca_binto50)%>%
+  select(-c("Ware","Prop"))%>%
+  pivot_wider(names_from = Type, values_from = Count)%>%
+  mutate(Method="CA")
+upda_ceramics <- summarize_ceramics(upda_binto50)%>%
+  select(-c("Ware","Prop"))%>%
+  pivot_wider(names_from = Type, values_from = Count)%>%
+  mutate(Method="UPDA")
+vep_ceramics <- summarize_ceramics(vep_binto50)%>%
+  select(-c("Ware","Prop"))%>%
+  pivot_wider(names_from = Type, values_from = Count)%>%
+  mutate(Method="VEP")
+
+all_ceramics <- rbind(pecos_ceramics,ca_ceramics,upda_ceramics,vep_ceramics)
+
+write.csv(all_ceramics,"./OUTPUT/Supplemental_Table_3.csv")
+```
+
+#### A.5 Supplemental Figure 2
+
+Calculate the inter-rater reliability for categorical variables based on a contingency table (pair-wise presence & absence) of site occupation for each year
 
 ```{r}
-pecosclass_bins_summary <- merge(ca_bintopecosclass_sum,vep_bintopecosclass_sum,by="Year")%>%
-  merge(.,upda_bintopecosclass_sum,by="Year")%>%
-  merge(.,pecosclass_bintopecosclass_sum,by="Year")%>%
-  setNames(c("Year","CA","VEP","UPDA","pecosclass"))
+cohen_kappa <- function(data1,data2, row, n){
+  contingency <- matrix(c(0,0,0,0), nrow = 2,
+                        dimnames = list(dim1 = c("present", "absent"),
+                                        dim2 = c("present", "absent")))
+  for (i in 2:ncol(data1)) {
+    if (data1[row, i] == 1) {
+      if (data2[row, i] == 1) {contingency[1,1] <- contingency[1,1] + 1}
+      else {contingency[1,2] <- contingency[1,2] + 1}
+    } else {
+      if (data2[row, i] == 1) {contingency[2,1] <- contingency[2,1] + 1}
+      else {contingency[2,2] <- contingency[2,2] + 1}
+    }
+  }
+  
+  cm1 <- contingency[1,1]+contingency[2,1]
 
-pp_years <- c(825,1025,1225)
+  cm2 <- contingency[1,2]+contingency[2,2]
 
-summary <- subset(summary,Year %in% pp_years)
+  rm1 <- contingency[1,1]+contingency[1,2]
 
-chisq_p <- matrix(nrow = length(pp_years), ncol = 2)
-chisq_p[1:nrow(chisq_p)] <- pp_years
-
-for (i in 1:nrow(chisq_p)) {
-  chisq_p[i, 2] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"],summary[i,c("VEP")],site_threshold-summary[i,c("VEP")],summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")]),nrow = 2),correct = F)$p.value
+  rm2 <- contingency[2,1]+contingency[2,2]
+  
+  cohen_kappa_score <- (((cm1 * rm1)/(n)) + ((cm2 * rm2)/(n)))/n
+  
+  return(cohen_kappa_score)
 }
-
-write.csv(chisq_p, "./OUTPUT/chi_squared_p-values_pecosperiods.csv")
 ```
-
-#### 6.5.6 Run chi squared of bivariate comparisons for pecos periods
-
-```{r}
-chi_square <- as.data.frame(matrix(nrow = length(pp_years), 
-                                      ncol = length(col_names), 
-                     dimnames = list(pp_years, col_names)))
-
-
-for (i in 1:nrow(chi_square)) {
-  ### CHI SQUARED
-  #pecosclass vs. CA
-  chi_square[i,c("pecosclass_CA")] <- chisq.test(matrix(c(summary[i,c("CA")],site_threshold-summary[i,c("CA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  #pecosclass vs. UPDA
-  chi_square[i,c("pecosclass_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  #pecosclass vs. VEP
-  chi_square[i,c("pecosclass_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("pecosclass")],site_threshold-summary[i,"pecosclass"]),nrow = 2),correct=F)$p.value
-  
-  #CA vs. UPDA
-  chi_square[i,c("CA_UPDA")] <- chisq.test(matrix(c(summary[i,c("UPDA")],site_threshold-summary[i,c("UPDA")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
-  
-  #CA vs. VEP
-  chi_square[i,c("CA_VEP")] <-  chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("CA")],site_threshold-summary[i,"CA"]),nrow = 2),correct=F)$p.value
-  
-  #UPDA vs. VEP
-  chi_square[i,c("UPDA_VEP")] <- chisq.test(matrix(c(summary[i,c("VEP")],site_threshold-summary[i,c("VEP")], summary[i,c("UPDA")],site_threshold-summary[i,"UPDA"]),nrow = 2),correct=F)$p.value
-}
-
-write.csv(chi_square, "./OUTPUT/chi_squred_p-values_bivariate_pecosperiods.csv",row.names=F)
-```
-
-#### 6.5.5 Re-bin to 50 year sections
-
-```{r}
-pecosclass_binto50 <- rebin(pecosclass_annual,fifty_ranges)
-vep_binto50 <- rebin(vep_annual,fifty_ranges)
-upda_binto50 <- rebin(upda_annual,fifty_ranges)
-ca_binto50 <- rebin(ca_annual,fifty_ranges)
-
-pecosclass_binto50_sum <- pecosclass_binto50%>%
-  select(c("Site","Year","bins"))%>%
-  group_by(Year)%>%
-  summarise(total_count=sum(bins,na.rm=T))
-
-vep_binto50_sum <- vep_bintoca%>%
-  select(c("Site","Year","bins"))%>%
-  group_by(Year)%>%
-  summarise(total_count=sum(bins,na.rm=T))
-
-upda_binto50_sum <- upda_binto50%>%
-  select(c("Site","Year","bins"))%>%
-  group_by(Year)%>%
-  summarise(total_count=sum(bins,na.rm=T))
-
-ca_binto50_sum <- ca_binto50%>%
-  select(c("Site","Year","Occupation"))%>%
-  group_by(Year)%>%
-  summarise(total_count=sum(Occupation,na.rm=T))
-```
-
-#### 6.6.1 cohen's kappa
 
 ```{r}
 #| warning: false 
@@ -1972,155 +1881,7 @@ for (i in 1:nrow(cohens_summary )) {
   cohens_summary[i,c("UPDA_VEP")] <- cohen_kappa(upda_t,vep_t,i,site_threshold)
 }
 
-write.csv(cohens_summary, "./OUTPUT/cohens_kappa.csv",row.names=F)
-```
-
-```{r}
-chisq_p1 <- read.csv("./OUTPUT/chi_squared_p-values.csv")
-
-cohens_summary <- read.csv("./OUTPUT/cohens_kappa.csv")%>%
-  mutate(Year=750:1280)
-
-cohens_summary1<-cohens_summary%>%
-  mutate(pecosclass_average_cohen = (pecosclass_CA+pecosclass_UPDA+pecosclass_VEP)/3,
-         CA_average_cohen = (pecosclass_CA+CA_UPDA+CA_VEP)/3,
-         UPDA_average_cohen = (pecosclass_UPDA+CA_UPDA+UPDA_VEP)/3,
-         VEP_average_cohen = (pecosclass_VEP+CA_VEP+UPDA_VEP)/3,
-         Year=750:1280)
-
-cohens_pecosclass1 <- cohens_summary1%>%
-  select(c("Year","pecosclass_average_cohen","pecosclass_CA","pecosclass_UPDA","pecosclass_VEP"))%>%
-  gather(Method,cohen,-Year)
-
-cohens_ca1 <- cohens_summary1%>%
-  select(c("Year","CA_average_cohen","pecosclass_CA","CA_UPDA","CA_VEP"))%>%
-  gather(Method,cohen,-Year)
-
-cohens_upda1 <- cohens_summary1%>%
-  select(c("Year","UPDA_average_cohen","pecosclass_UPDA","CA_UPDA","UPDA_VEP"))%>%
-  gather(Method,cohen,-Year)
-
-cohens_vep1 <- cohens_summary1%>%
-  select(c("Year","VEP_average_cohen","pecosclass_VEP","CA_VEP","UPDA_VEP"))%>%
-  gather(Method,cohen,-Year)
-
-
-
-### REFACTOR FOR CLEAN PLOTTING
-cohens_pecosclass1$Method <- factor(cohens_pecosclass1$Method,levels=c("pecosclass_CA","pecosclass_UPDA","pecosclass_VEP","pecosclass_average_cohen"))
-
-cohens_ca1$Method <- factor(cohens_ca1$Method,levels=c("pecosclass_CA","CA_UPDA","CA_VEP","CA_average_cohen"))
-
-cohens_upda1$Method <- factor(cohens_upda1$Method,levels=c("pecosclass_UPDA","CA_UPDA","UPDA_VEP","UPDA_average_cohen"))
-
-cohens_vep1$Method <- factor(cohens_vep1$Method,levels=c("pecosclass_VEP","CA_VEP","UPDA_VEP","VEP_average_cohen"))
-###
-
-
-
-p1<-ggplot(data=chisq_p1,aes(V1,V2))+
-  geom_line(col="grey30",lwd=1.5)+
-  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
-  scale_y_continuous(limits=c(0,0.15),breaks=seq(0,0.15,by=0.05))+
-  labs(x=NULL,
-       y="Chi-Square P-value",
-       title="Average Agreement (Cohen's Kappa) by Method")+
-  theme_minimal()+
-  theme(#legend.position="none",
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
-        axis.title.y = element_text(size=15),
-        axis.text=element_text(size=13),
-        plot.title=element_text(size=15),
-        plot.margin = margin(5,5,0,2))
-
-p2<-ggplot(data=cohens_pecosclass1 ,aes(Year,cohen))+
-  annotate("rect",xmin=900,xmax=999,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1050,xmax=1149,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  geom_line(aes(col=Method),lwd=1.5)+
-  scale_color_manual(values=c("#6C6C8140","#6C6C8140","#6C6C8140","#3d405b"))+
-  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
-  labs(x=NULL,
-       y="Cohen's Kappa\n(Pecos Class)")+
-  theme_minimal()+
-  theme(legend.position = "none",
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
-        axis.title.y = element_text(size=15),
-        axis.text=element_text(size=13),
-        plot.margin = margin(5,5,0,2))
-
-p3<-ggplot(data=cohens_ca1 ,aes(Year,cohen))+
-  annotate("rect",xmin=700,xmax=799,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1180,xmax=1249,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  geom_line(aes(col=Method),lwd=1.5)+
-  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
-  scale_color_manual(values=c("#E07A5F40","#E07A5F40","#E07A5F40","#E07A5F"))+
-  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
-  labs(x=NULL,
-       y="Cohen's Kappa\n(CA)")+
-  theme_minimal()+
-  theme(legend.position = "none",
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
-        axis.title.y = element_text(size=15),
-        axis.text=element_text(size=13),
-        plot.margin = margin(5,5,0,2))
-
-p4<-ggplot(data=cohens_upda1 ,aes(Year,cohen))+
-  annotate("rect",xmin=800,xmax=874,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=925,xmax=974,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1050,xmax=1174,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1201,xmax=1250,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  geom_line(aes(col=Method),lwd=1.5)+
-  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
-  scale_color_manual(values=c("#BCD1C580","#BCD1C580","#BCD1C580","#81B29A"))+
-  labs(x=NULL,
-       y="Cohen's Kappa\n(UPDA)")+
-  theme_minimal()+
-  theme(legend.position = "none",
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
-        axis.title.y = element_text(size=15),
-        axis.text=element_text(size=13),
-        plot.margin = margin(5,5,0,2))
-
-p5<-ggplot(data=cohens_vep1 ,aes(Year,cohen))+
-  annotate("rect",xmin=700,xmax=724,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=800,xmax=839,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=880,xmax=919,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=980,xmax=1019,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1060,xmax=1099,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1140,xmax=1179,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  annotate("rect",xmin=1225,xmax=1259,ymin=0,ymax=1,col=NA,fill="grey75",alpha=0.20)+
-  geom_line(aes(col=Method),lwd=1.5)+
-  scale_x_continuous(limits=c(700,1300),breaks=seq(700,1300,by=100))+
-  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,by=0.25))+
-  scale_color_manual(values=c("#BFA37366","#BFA37366","#BFA37366","#BFA373"))+
-  labs(x="Year",
-       y="Cohen's Kappa\n(VEP)")+
-  theme_minimal()+
-  theme(legend.position = "none",
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
-        axis.title.y = element_text(size=15),
-        axis.text=element_text(size=13),
-        plot.margin = margin(5,5,0,2))
-
-
-png('./FIGURES/Figure_5_CohensKappa.png',height=16000,width=12000,res=1200)
-ggarrange(p1,p2,p3,p4,p5, nrow=5,ncol=1,align="hv",heights=c(0.75,1,1,1,1))
-dev.off()
-```
-
-```{r}
-cohens_summary <- read.csv("./OUTPUT/cohens_kappa.csv")%>%
+cohens_summary <- cohens_summary%>%
   mutate(Year=750:1280)%>%
   gather(method,disagree,-Year)
 
@@ -2131,13 +1892,14 @@ ca_upda <-filter(cohens_summary,method=="CA_UPDA")
 ca_vep <-filter(cohens_summary,method=="CA_VEP")
 upda_vep <-filter(cohens_summary,method=="UPDA_VEP")
 
+ck_av <- mean(cohens_summary$disagree)
+print(paste0("The Mean Cohen's Kappa Statistics is ",print(ck_av),sep=""))
 
-kk_av <- mean(cohens_summary$disagree)
 
 p1<-ggplot()+
   geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
   geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
-  geom_hline(yintercept=kk_av,linetype="dotted",linewidth=0.85,col="grey30")+
+  geom_hline(yintercept=ck_av,linetype="dotted",linewidth=0.85,col="grey30")+
   geom_line(data=pecosclass_ca,aes(Year,disagree),col="#8F5D5D",lwd=1.25)+
   scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
@@ -2157,7 +1919,7 @@ p1<-ggplot()+
 p2<-ggplot()+
   geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
   geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
-  geom_hline(yintercept=kk_av,linetype="dotted",linewidth=0.85,col="grey30")+
+  geom_hline(yintercept=ck_av,linetype="dotted",linewidth=0.85,col="grey30")+
   geom_line(data=pecosclass_upda,aes(Year,disagree),col="#5F797B",lwd=1.25)+
   scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
@@ -2175,7 +1937,7 @@ p2<-ggplot()+
 p3<-ggplot()+
   geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
   geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#BFA373",fill="#F2CC8FA4",alpha=0.5,linewidth = 1)+
-  geom_hline(yintercept=kk_av,linetype="dotted",linewidth=0.85,col="grey30")+
+  geom_hline(yintercept=ck_av,linetype="dotted",linewidth=0.85,col="grey30")+
   geom_line(data=pecosclass_vep,aes(Year,disagree),col="#7E7267",lwd=1.25)+
   scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
@@ -2193,7 +1955,7 @@ p3<-ggplot()+
 p4<-ggplot()+
   geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
     geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
-  geom_hline(yintercept=kk_av,linetype="dotted",linewidth=0.85,col="grey30")+
+  geom_hline(yintercept=ck_av,linetype="dotted",linewidth=0.85,col="grey30")+
   geom_line(data=ca_upda,aes(Year,disagree),col="#B1967D",lwd=1.25)+
   scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
@@ -2213,7 +1975,7 @@ p4<-ggplot()+
 p5<-ggplot()+
   geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
   geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#BFA373",fill="#F2CC8FA4",alpha=0.5,linewidth = 1)+
-  geom_hline(yintercept=kk_av,linetype="dotted",linewidth=0.85,col="grey30")+
+  geom_hline(yintercept=ck_av,linetype="dotted",linewidth=0.85,col="grey30")+
   geom_line(data=ca_vep,aes(Year,disagree),col="#D08F69",lwd=1.25)+
   scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
@@ -2231,7 +1993,7 @@ p5<-ggplot()+
 p6<-ggplot()+
   geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
   geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#BFA373",fill="#F2CC8FA4",alpha=0.5,linewidth = 1)+
-  geom_hline(yintercept=kk_av,linetype="dotted",linewidth=0.85,col="grey30")+
+  geom_hline(yintercept=ck_av,linetype="dotted",linewidth=0.85,col="grey30")+
   geom_line(data=upda_vep,aes(Year,disagree),col="#A0AB87",lwd=1.25)+
   scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
   scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
@@ -2247,15 +2009,395 @@ p6<-ggplot()+
         axis.text=element_text(size=13),
         plot.margin = margin(10,10,10,5))
 
-png('./FIGURES/Figure_6_CohensKappa.png',height=14000,width=24000,res=1200)
+png('./FIGURES/Supplemental_Figure_2.png',height=14000,width=24000,res=1200)
 ggarrange(p1,p2,p3,p4,p5,p6, nrow=2,ncol=3,align="hv")
 dev.off()
 ```
 
-### 6.6 Ceramics of Disagreeable Sites
+#### A.6 Supplemental Figure 3
 
-1.  Find the most disagreeable sites
-2.  Assess their assemblages
+Re-run the disagreements section (Section 6.3) after subsetting the `master_pottery` data (and subsequent objects) to include sites with 10 or 25 or more diagnostic sherds. Outputs of both have been provided in the GitHub repository to minimize the script size.
+
+```{r}
+percent_error <- read.csv("./OUTPUT/percent_error.csv")%>%
+  mutate(Year=750:1280)%>%
+  gather(method,disagree,-Year)
+
+pecosclass_ca <-filter(percent_error,method=="pecosclass_CA")
+pecosclass_upda <-filter(percent_error,method=="pecosclass_UPDA")
+pecosclass_vep <-filter(percent_error,method=="pecosclass_VEP")
+ca_upda <-filter(percent_error,method=="CA_UPDA")
+ca_vep <-filter(percent_error,method=="CA_VEP")
+upda_vep <-filter(percent_error,method=="UPDA_VEP")
+
+
+p1<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_ca,aes(Year,disagree),col="#8F5D5D",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y="Disagreement",
+       title ="Pecos Classs & CA\n(5 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title.y = element_text(size=15),
+        axis.text.y=element_text(size=13),
+        axis.text.x=element_blank(),
+        plot.margin = margin(10,10,10,5))
+
+p2<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_upda,aes(Year,disagree),col="#5F797B",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y=NULL,
+       title ="Pecos Class & UPDA\n(5 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p3<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_vep,aes(Year,disagree),col="#988675",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y=NULL,
+       title ="Pecos Class & VEP\n(5 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p4<-ggplot()+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+    geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_line(data=ca_upda,aes(Year,disagree),col="#B1967D",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y="Disagreement",
+       title ="CA & UPDA\n(5 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title = element_text(size=15),
+        axis.title = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+
+p5<-ggplot()+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=ca_vep,aes(Year,disagree),col="#E9A377",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y=NULL,
+       title ="CA & VEP\n(5 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p6<-ggplot()+
+  geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=upda_vep,aes(Year,disagree),col="#BABF95",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y=NULL,
+       title ="UPDA & VEP\n(5 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+percent_error <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/percent_error_10ormore.csv")%>%
+  mutate(Year=750:1280)%>%
+  gather(method,disagree,-Year)
+
+pecosclass_ca <-filter(percent_error,method=="Survey.CA")
+pecosclass_upda <-filter(percent_error,method=="Survey.UPDA")
+pecosclass_vep <-filter(percent_error,method=="Survey.VEP")
+ca_upda <-filter(percent_error,method=="UPDA.CA")
+ca_vep <-filter(percent_error,method=="VEP.CA")
+upda_vep <-filter(percent_error,method=="VEP.UPDA")
+
+
+p7<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_ca,aes(Year,disagree),col="#8F5D5D",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y="Disagreement",
+       title ="Pecos Classs & CA\n(10 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title.y = element_text(size=15),
+        axis.text.y=element_text(size=13),
+        axis.text.x=element_blank(),
+        plot.margin = margin(10,10,10,5))
+
+p8<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_upda,aes(Year,disagree),col="#5F797B",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y=NULL,
+       title ="Pecos Class & UPDA\n(10 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p9<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_vep,aes(Year,disagree),col="#988675",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y=NULL,
+       title ="Pecos Class & VEP\n(10 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p10<-ggplot()+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+    geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_line(data=ca_upda,aes(Year,disagree),col="#B1967D",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y="Disagreement",
+       title ="CA & UPDA\n(10 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title = element_text(size=15),
+        axis.title = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+
+p11<-ggplot()+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=ca_vep,aes(Year,disagree),col="#E9A377",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y=NULL,
+       title ="CA & VEP\n(10 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p12<-ggplot()+
+  geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=upda_vep,aes(Year,disagree),col="#BABF95",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y=NULL,
+       title ="UPDA & VEP\n(10 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+percent_error <- read.csv("https://raw.githubusercontent.com/sfield2/Seriation_Multiverse/refs/heads/main/DATA/percent_error_25ormore.csv")%>%
+  mutate(Year=750:1280)%>%
+  gather(method,disagree,-Year)
+
+pecosclass_ca <-filter(percent_error,method=="Survey.CA")
+pecosclass_upda <-filter(percent_error,method=="Survey.UPDA")
+pecosclass_vep <-filter(percent_error,method=="Survey.VEP")
+ca_upda <-filter(percent_error,method=="UPDA.CA")
+ca_vep <-filter(percent_error,method=="VEP.CA")
+upda_vep <-filter(percent_error,method=="VEP.UPDA")
+
+
+p13<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_ca,aes(Year,disagree),col="#8F5D5D",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y="Disagreement",
+       title ="Pecos Classs & CA\n(25 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title.y = element_text(size=15),
+        axis.text.y=element_text(size=13),
+        axis.text.x=element_blank(),
+        plot.margin = margin(10,10,10,5))
+
+p14<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_upda,aes(Year,disagree),col="#5F797B",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y=NULL,
+       title ="Pecos Class & UPDA\n(25 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p15<-ggplot()+
+  geom_rect(data=pecosclass_ranges_plot1,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#3D405B",fill="#9898A2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=pecosclass_vep,aes(Year,disagree),col="#988675",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x=NULL,
+       y=NULL,
+       title ="Pecos Class & VEP\n(25 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p16<-ggplot()+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+    geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_line(data=ca_upda,aes(Year,disagree),col="#B1967D",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y="Disagreement",
+       title ="CA & UPDA\n(25 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title = element_text(size=15),
+        axis.title = element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+
+p17<-ggplot()+
+  geom_rect(data=ca_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#E07A5F",fill="#E9B5A4",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=ca_vep,aes(Year,disagree),col="#E9A377",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y=NULL,
+       title ="CA & VEP\n(25 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+p18<-ggplot()+
+  geom_rect(data=upda_ranges_plot,aes(xmin=start,xmax=end,ymin=1.16,ymax=1.3),col="#81b29a",fill="#BAD1C2",alpha=0.5,linewidth = 1)+
+  geom_rect(data=vep_ranges_plot,aes(xmin=start,xmax=end,ymin=1,ymax=1.14),col="#F2CC8F",fill="#F2DEBC",alpha=0.5,linewidth = 1)+
+  geom_line(data=upda_vep,aes(Year,disagree),col="#BABF95",lwd=1.25)+
+  scale_x_continuous(limits=c(675,1300),breaks=seq(700,1300,by=100))+
+  scale_y_continuous(limits=c(0,1.35),breaks=seq(0,1,by=0.5))+
+  labs(x="Year",
+       y=NULL,
+       title ="UPDA & VEP\n(25 or more diagnostic sherds)")+
+  theme_minimal()+
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
+        plot.title=element_text(size=15),
+        axis.title=element_text(size=15),
+        axis.text=element_text(size=13),
+        plot.margin = margin(10,10,10,5))
+
+png('./FIGURES/Supplemental_Figure_3.png',height=14000,width=16000,res=600)
+ggarrange(p1,p7,p13,
+          p2,p8,p14,
+          p3,p9,p15,
+          p4,p10,p16,
+          p5,p11,p17,
+          p6,p12,p18, nrow=6,ncol=3,align="hv",heights=c(0.75,1,1,1,1,1))
+dev.off()
+```
+
+#### A.7 Supplemental Table 4
+
+Export table from Step 6.5.2 that tracks sites that are multi-component and have discrete occupations.
+
+```{r}
+component_details <- component_details%>%
+  mutate(high_amounts_of_disagreement = ifelse(Site.Number %in% disagree_and_component$Site.Number,"Yes","No"))
+
+write.csv(component_details,"./OUTPUT/Supplemental_Table_4.csv")
+```
+
+#### A.8 Supplemental Figure 4
 
 ```{r}
 pecosclass_disagree <- filter(pecosclass_annual,Site %in% disagree_and_component$Site.Number)
@@ -2360,69 +2502,54 @@ p4<-ggplot(data=vep_disagree_sum ,aes(Year,total_count))+
         axis.text=element_text(size=13),
         plot.margin = margin(5,5,0,2))
 
-# p5<-ggplot()+
-#   geom_col(data=master_ceramics_prop,aes(Type,Prop,col=Ware,fill=Ware))+
-#   scale_color_manual(values=c("#c2c5aa","#023047","#52796f","#d4a373"))+
-#   scale_fill_manual(values=c("#c2c5aa","#023047","#52796f","#d4a373"))+
-#   scale_y_continuous(limits=c(0,0.75),breaks=seq(0,0.75,by=0.25))+
-#   labs(title= "Proportion of Ceramic Types by Ware for All Sites (n=79)",
-#        x=NULL,
-#        y="Proportion")+
-#   theme_minimal()+
-#   theme(panel.grid.minor = element_blank(),
-#         panel.grid.major = element_line(linewidth = 0.2, color = "grey75"),
-#         plot.title=element_text(size=18),
-#         axis.title.x=element_blank(),
-#         axis.title.y=element_text(size=15),
-#         axis.text.x=element_blank(),
-#         axis.text.y=element_text(size=13),
-#         plot.margin = margin(15,5,5,5),
-#         legend.title=element_text(size=15),
-#         legend.text=element_text(size=13))
+png('./FIGURES/Supplemental_Figure_4.png',height=19000,width=14000,res=1200)
+ggarrange(p1,p2,p3,p4,nrow=4,ncol=1,common.legend=TRUE,legend="bottom",heights=c(1,1,1,1.2))
+dev.off()
 ```
 
-#### 6.10.1 Divide by method
+#### A.9 Supplemental Figure 5
 
 ```{r}
 ceramic_disagreements <- all_list%>%
   reduce(left_join,by="Site.Number")
 
-pecosclass_ca_disagree <- subset(ceramic_disagreements,pecosclass_ca >= as.numeric(stats[1,c("q3")]))
+stats <- sapply(ceramic_disagreements[, sapply(ceramic_disagreements, is.numeric)], summary)%>%
+  as.data.frame()
 
-pecosclass_upda_disagree <- subset(ceramic_disagreements,pecosclass_upda >= as.numeric(stats[2,c("q3")]))
+pecosclass_ca_disagree <- subset(ceramic_disagreements,pecosclass_ca >= as.numeric(stats[5,1]))
 
-pecosclass_vep_disagree <- subset(ceramic_disagreements,pecosclass_vep >= as.numeric(stats[3,c("q3")]))
+pecosclass_upda_disagree <- subset(ceramic_disagreements,pecosclass_upda >= as.numeric(stats[5,2]))
 
-ca_upda_disagree <- subset(ceramic_disagreements,ca_upda >= as.numeric(stats[4,c("q3")]))
+pecosclass_vep_disagree <- subset(ceramic_disagreements,pecosclass_vep >= as.numeric(stats[5,3]))
 
-ca_vep_disagree <- subset(ceramic_disagreements,ca_vep >= as.numeric(stats[5,c("q3")]))
+ca_upda_disagree <- subset(ceramic_disagreements,ca_upda >= as.numeric(stats[5,4]))
 
-upda_vep_disagree <- subset(ceramic_disagreements,upda_vep >= as.numeric(stats[6,c("q3")]))
+ca_vep_disagree <- subset(ceramic_disagreements,ca_vep >= as.numeric(stats[5,5]))
 
-
+upda_vep_disagree <- subset(ceramic_disagreements,upda_vep >= as.numeric(stats[5,6]))
 
 pecos_ca_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_ca_disagree)%>%
-  mutate(pecosclass_ca = Prop-master_pottery_plot$Prop)%>%
+  mutate(pecosclass_ca = Prop-master_ceramics_prop$Prop)%>%
   select(c("Type","Ware","pecosclass_ca"))
 
 pecos_upda_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_upda_disagree)%>%
-  mutate(pecosclass_upda = Prop-master_pottery_plot$Prop)%>%
+  mutate(pecosclass_upda = Prop-master_ceramics_prop$Prop)%>%
   select(c("Type","Ware","pecosclass_upda"))
 
 pecos_vep_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_vep_disagree)%>%
-  mutate(pecosclass_vep = Prop-master_pottery_plot$Prop)%>%
+  mutate(pecosclass_vep = Prop-master_ceramics_prop$Prop)%>%
   select(c("Type","Ware","pecosclass_vep"))
 
 ca_upda_disagree_ceramics <- sort_ceramics(master_pottery,ca_upda_disagree)%>%
-  mutate(ca_upda = Prop-master_pottery_plot$Prop)%>%
+  mutate(ca_upda = Prop-master_ceramics_prop$Prop)%>%
   select(c("Type","Ware","ca_upda"))
 
 ca_vep_disagree_ceramics <- sort_ceramics(master_pottery,ca_vep_disagree)%>%
-  mutate(ca_vep = Prop-master_pottery_plot$Prop)%>%
+  mutate(ca_vep = Prop-master_ceramics_prop$Prop)%>%
   select(c("Type","Ware","ca_vep"))
 
 upda_vep_disagree_ceramics <- sort_ceramics(master_pottery,upda_vep_disagree)%>%
-  mutate(upda_vep = Prop-master_pottery_plot$Prop)%>%
+  mutate(upda_vep = Prop-master_ceramics_prop$Prop)%>%
   select(c("Type","Ware","upda_vep"))
 
 
@@ -2434,48 +2561,9 @@ all_disagreement_ceramics <- all_list_ceramics%>%
 
 
 all_disagreement_ceramics$method <- factor(all_disagreement_ceramics$method,levels=c("pecosclass_ca","pecosclass_upda","pecosclass_vep","ca_upda","ca_vep","upda_vep"),labels=c("Pecos Class & CA","Pecos Class & UPDA","Pecos Class & VEP","CA & UPDA","CA & VEP","UPDA & VEP"))
-```
 
-```{r}
-pecos_ca_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_ca_disagree)%>%
-  select(c("Type","Ware","Prop"))%>%
-  setNames(c("Type","Ware","pecosclass_ca"))
-
-pecos_upda_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_upda_disagree)%>%
-  select(c("Type","Ware","Prop"))%>%
-  setNames(c("Type","Ware","pecosclass_upda"))
-
-pecos_vep_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_vep_disagree)%>%
-  select(c("Type","Ware","Prop"))%>%
-  setNames(c("Type","Ware","pecosclass_vep"))
-
-ca_upda_disagree_ceramics <- sort_ceramics(master_pottery,ca_upda_disagree)%>%
-  select(c("Type","Ware","Prop"))%>%
-  setNames(c("Type","Ware","ca_upda"))
-
-ca_vep_disagree_ceramics <- sort_ceramics(master_pottery,ca_vep_disagree)%>%
-  select(c("Type","Ware","Prop"))%>%
-  setNames(c("Type","Ware","ca_vep"))
-
-upda_vep_disagree_ceramics <- sort_ceramics(master_pottery,upda_vep_disagree)%>%
-  select(c("Type","Ware","Prop"))%>%
-  setNames(c("Type","Ware","upda_vep"))
-
-
-all_list_ceramics <- list(pecos_ca_disagree_ceramics,pecos_upda_disagree_ceramics,pecos_vep_disagree_ceramics,ca_upda_disagree_ceramics,ca_vep_disagree_ceramics,upda_vep_disagree_ceramics)
-
-all_disagreement_ceramics <- all_list_ceramics%>%
-  reduce(left_join,by=c("Type","Ware"))%>%
-  gather(method,value,-c("Type","Ware"))
-
-all_disagreement_ceramics$method <- factor(all_disagreement_ceramics$method,levels=c("pecosclass_ca","pecosclass_upda","pecosclass_vep","ca_upda","ca_vep","upda_vep"),labels=c("Pecos Class & CA","Pecos Class & UPDA","Pecos Class & VEP","CA & UPDA","CA & VEP","UPDA & VEP"))
-```
-
-#### 6.10.2 Figure 7
-
-```{r}
 p1<-ggplot()+
-  geom_col(data=master_pottery_plot,aes(Type,Prop,col=Ware,fill=Ware))+
+  geom_col(data=master_ceramics_prop,aes(Type,Prop,col=Ware,fill=Ware))+
   scale_color_manual(values=c("#c2c5aa","#023047","#52796f","#d4a373"))+
   scale_fill_manual(values=c("#c2c5aa","#023047","#52796f","#d4a373"))+
   scale_y_continuous(limits=c(0,0.75),breaks=seq(0,0.75,by=0.25))+
@@ -2512,47 +2600,7 @@ p2<-ggplot()+
         plot.margin = margin(15,0,0,2),
         panel.spacing.x = unit(0.5, "cm"))
 
-png('./FIGURES/Figure_7.png',height=14000,width=28000,res=1200)
+png('./FIGURES/Supplemental_Figure_5.png',height=14000,width=28000,res=1200)
 ggarrange(p1,p2,nrow=2,ncol=1,common.legend=TRUE,legend="bottom",heights=c(1,2))
 dev.off()
-```
-
-### 6.11 All Ceramics
-
-```{r}
-pecos_ceramics <- summarize_ceramics(pecosclass_binto50)
-ca_ceramics <- summarize_ceramics(ca_binto50)
-upda_ceramics <- summarize_ceramics(upda_binto50)
-vep_ceramics <- summarize_ceramics(vep_binto50)
-
-write.csv(pecos_ceramics,"./OUTPUT/pecos_ceramics.csv")
-write.csv(ca_ceramics,"./OUTPUT/ca_ceramics.csv")
-write.csv(upda_ceramics,"./OUTPUT/upda_ceramics.csv")
-write.csv(vep_ceramics,"./OUTPUT/vep_ceramics.csv")
-```
-
-### 6.12 Ceramics of Most Disagreeable Sites
-
-```{r}
-pc_vep_disagreesites <- unique(pecosclass_vep_disagree$Site.Number)
-ca_vep_disagreesites <- unique(ca_vep_disagree$Site.Number)
-upda_vep_disagreesites <- unique(upda_vep_disagree$Site.Number)
-
-total <- c(pc_vep_disagreesites,ca_vep_disagreesites,upda_vep_disagreesites)
-
-disagreeable_sites <- as.data.frame(table(unlist(total)))
-
-disagree_components <- filter(component_details,Site.Number %in% disagreeable_sites$Var1)%>%
-  filter(distinct_components_vep>1)
-
-vep_binto50_disagree <- filter(vep_binto50,Site %in% disagree_components$Site.Number)
-
-vep_disagreeable_ceramics_binto50 <- summarize_ceramics(vep_binto50_disagree)
-
-vep_disagreeable_occupation <- filter(vep,Site.Number %in% disagree_components$Site.Number)%>%
-  mutate(across(-Site.Number, ~ if_else(. > 0, 1, 0)))
-
-write.csv(vep_disagreeable_occupation,"./OUTPUT/VEP_disagreeablesites_occupation.csv")
-
-write.csv(vep_disagreeable_ceramics_binto50,"./OUTPUT/VEP_disagreeablesites_ceramics.csv")
 ```

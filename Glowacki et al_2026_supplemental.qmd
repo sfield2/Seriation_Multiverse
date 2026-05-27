@@ -2274,3 +2274,62 @@ png('./FIGURES/Figure_5_CohensKappa.png',height=16000,width=12000,res=1200)
 ggarrange(p1,p2,p3,p4,p5, nrow=5,ncol=1,align="hv",heights=c(0.75,1,1,1,1))
 dev.off()
 ```
+
+```{r}
+pecos_ca_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_ca_disagree)%>%
+  select(c("Type","Ware","Prop"))%>%
+  setNames(c("Type","Ware","pecosclass_ca"))
+
+pecos_upda_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_upda_disagree)%>%
+  select(c("Type","Ware","Prop"))%>%
+  setNames(c("Type","Ware","pecosclass_upda"))
+
+pecos_vep_disagree_ceramics <- sort_ceramics(master_pottery,pecosclass_vep_disagree)%>%
+  select(c("Type","Ware","Prop"))%>%
+  setNames(c("Type","Ware","pecosclass_vep"))
+
+ca_upda_disagree_ceramics <- sort_ceramics(master_pottery,ca_upda_disagree)%>%
+  select(c("Type","Ware","Prop"))%>%
+  setNames(c("Type","Ware","ca_upda"))
+
+ca_vep_disagree_ceramics <- sort_ceramics(master_pottery,ca_vep_disagree)%>%
+  select(c("Type","Ware","Prop"))%>%
+  setNames(c("Type","Ware","ca_vep"))
+
+upda_vep_disagree_ceramics <- sort_ceramics(master_pottery,upda_vep_disagree)%>%
+  select(c("Type","Ware","Prop"))%>%
+  setNames(c("Type","Ware","upda_vep"))
+
+
+all_list_ceramics <- list(pecos_ca_disagree_ceramics,pecos_upda_disagree_ceramics,pecos_vep_disagree_ceramics,ca_upda_disagree_ceramics,ca_vep_disagree_ceramics,upda_vep_disagree_ceramics)
+
+all_disagreement_ceramics <- all_list_ceramics%>%
+  reduce(left_join,by=c("Type","Ware"))%>%
+  gather(method,value,-c("Type","Ware"))
+
+all_disagreement_ceramics$method <- factor(all_disagreement_ceramics$method,levels=c("pecosclass_ca","pecosclass_upda","pecosclass_vep","ca_upda","ca_vep","upda_vep"),labels=c("Pecos Class & CA","Pecos Class & UPDA","Pecos Class & VEP","CA & UPDA","CA & VEP","UPDA & VEP"))
+```
+
+```{r}
+pc_vep_disagreesites <- unique(pecosclass_vep_disagree$Site.Number)
+ca_vep_disagreesites <- unique(ca_vep_disagree$Site.Number)
+upda_vep_disagreesites <- unique(upda_vep_disagree$Site.Number)
+
+total <- c(pc_vep_disagreesites,ca_vep_disagreesites,upda_vep_disagreesites)
+
+disagreeable_sites <- as.data.frame(table(unlist(total)))
+
+disagree_components <- filter(component_details,Site.Number %in% disagreeable_sites$Var1)%>%
+  filter(distinct_components_vep>1)
+
+vep_binto50_disagree <- filter(vep_binto50,Site %in% disagree_components$Site.Number)
+
+vep_disagreeable_ceramics_binto50 <- summarize_ceramics(vep_binto50_disagree)
+
+vep_disagreeable_occupation <- filter(vep,Site.Number %in% disagree_components$Site.Number)%>%
+  mutate(across(-Site.Number, ~ if_else(. > 0, 1, 0)))
+
+write.csv(vep_disagreeable_occupation,"./OUTPUT/VEP_disagreeablesites_occupation.csv")
+
+write.csv(vep_disagreeable_ceramics_binto50,"./OUTPUT/VEP_disagreeablesites_ceramics.csv")
+```
